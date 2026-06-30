@@ -11,9 +11,12 @@ import datetime
 from data_utils import *
 from db_utils import *
 from input_utils import *
+from slm_utils.reccomend import *
 import time
 import asyncio
+from warnings import filterwarnings
 
+filterwarnings("ignore")
 
 app = FastAPI()
 
@@ -64,7 +67,7 @@ async def predict(request: PredictionRequest, user=Depends(verify_token)):
     df = pd.DataFrame([request.model_dump()])
     #df["timestamp"] = pd.to_datetime(df["timestamp"]) // not required due to the datetime being the index of the data
 
-    df = feature_engineer_energy(df) //will be restored, i promise.
+    df = feature_engineer_engineer(df)
 
     # Prediction
     y_pred = model.predict(df)
@@ -171,4 +174,20 @@ async def create_user(new_user: RequestUser):
     return {
         "status": "success",
         "message": "User created successfully."
+    }
+
+
+@app.get("/recommend")
+async def slm_recommend(request: SLMSchema):
+    await reccomend(
+        request.prediction,
+        request.causal_effect,
+        request.confidence,
+        request.retrieved_docs
+    )
+
+
+    return {
+        "status": "success",
+        "message": "Reccomendation Distributed successfully"
     }

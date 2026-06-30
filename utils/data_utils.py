@@ -57,7 +57,12 @@ class RequestUser(BaseModel):
     email: str
     password: str
 
-
+#For SLM Recommendation Engine
+class SLMSchema(BaseModel):
+    prediction: float
+    confidence: float
+    causal_effect: float
+    retrieved_docs: str
 # Requesting to be turned to a dataframe
 def request_to_dataframe(
     request: PredictionRequest
