@@ -2,33 +2,33 @@
    CampusEnergy — Design System
    ========================================================= */
 
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 :root{
-  /* Color */
-  --bg-deep:      #11142a;
-  --bg-base:      #161a30;
-  --bg-panel:     #1d2240;
-  --bg-panel-2:   #232a4a;
-  --bg-input:     #2a3156;
-  --line:         rgba(255,255,255,0.08);
-  --line-strong:  rgba(255,255,255,0.16);
+  /* Color - Professional Slate-Zinc tech theme */
+  --bg-deep:      #080a10;
+  --bg-base:      #0f121d;
+  --bg-panel:     #161b2a;
+  --bg-panel-2:   #1f263b;
+  --bg-input:     #28314c;
+  --line:         rgba(255,255,255,0.05);
+  --line-strong:  rgba(255,255,255,0.1);
 
-  --mint:         #5eead4;
-  --mint-strong:  #2dd4bf;
-  --mint-soft:    rgba(94,234,212,0.14);
-  --blue:         #7dd3fc;
-  --amber:        #fbbf68;
-  --danger:       #fb7185;
+  --mint:         #10b981; /* Emerald/Mint */
+  --mint-strong:  #059669;
+  --mint-soft:    rgba(16,185,129,0.12);
+  --blue:         #0ea5e9; /* Sky Blue */
+  --amber:        #f59e0b;
+  --danger:       #f43f5e;
 
-  --text:         #f3f5fb;
-  --text-dim:     #aab2cf;
-  --text-faint:   #6b729a;
+  --text:         #f8fafc; /* Slate 50 */
+  --text-dim:     #94a3b8; /* Slate 400 */
+  --text-faint:   #64748b; /* Slate 500 */
 
-  --grad-brand: linear-gradient(120deg, var(--blue), var(--mint));
+  --grad-brand: linear-gradient(135deg, var(--blue), var(--mint));
 
   /* Type */
-  --f-display: 'Space Grotesk', system-ui, sans-serif;
+  --f-display: 'Plus Jakarta Sans', system-ui, sans-serif;
   --f-body: 'Inter', system-ui, sans-serif;
   --f-mono: 'JetBrains Mono', ui-monospace, monospace;
 
