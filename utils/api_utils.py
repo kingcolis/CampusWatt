@@ -56,7 +56,7 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(auth_scheme
 
 #General Utils
 model = joblib.load("models/rfr_model.pkl")
-#causal_model = joblib.load("models/causal_models/model.pkl") //later
+causal_model = joblib.load("models/causal_models/causal_linear_model.pkl") 
 
 print(model.feature_names_in_)
 
@@ -106,7 +106,7 @@ async def predict(request: PredictionRequest, user=Depends(verify_token)):
 def causal_predict(request: PredictionRequest, user=Depends(verify_token)):
 
     df = pd.DataFrame([request.model_dump()])
-    df["timestamp"] = pd.to_datetime(df["timestamp"])
+    #df["timestamp"] = pd.to_datetime(df["timestamp"])
 
     # causal model may depend on same engineered features
     df = feature_engineer_energy(df)
@@ -119,11 +119,21 @@ def causal_predict(request: PredictionRequest, user=Depends(verify_token)):
 
     preds = causal_model.predict(df)
 
-    return {
-        "causal_prediction": float(preds[0]),
-        "p_value": getattr(causal_model, "p_value", None),
-        "residuals": getattr(causal_model, "residuals", None)
+    results =  {
+        "causal_prediction": float(preds[0].iloc[0] if hasattr(preds, "iloc") else prediction[0]),
+        "p_value": causal_model.pvalues.to_dict(),
+        "r_squared": float(causal_model.rsquared)
     }
+
+    await save_causal_result(
+        "DoWhy-LinearRegression",
+        request.model_dump(),
+        results,
+        elapsed,
+        False
+    )
+
+    return results
 
 @app.post("/login")
 async def login(request: LoginRequest):

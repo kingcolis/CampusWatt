@@ -216,3 +216,29 @@ async def save_prediction_result(
         )
 
     await db.commit()
+
+
+async def save_causal_result(
+    model_name: str,
+    input_data: dict,
+    output: dict,
+    inference_time_ms: int,
+    has_error: bool
+):
+    await db.execute(
+        """
+        INSERT INTO causal_results(
+            model_name,
+            input_data,
+            prediction_output,
+            inference_time_ms,
+            has_error
+        )
+        VALUES ($1,$2,$3,$4,$5)
+        """,
+        model_name,
+        json.dumps(input_data, default=str),
+        json.dumps(output, default=str),
+        inference_time_ms,
+        has_error
+    )
