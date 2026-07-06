@@ -9,8 +9,7 @@ stats = joblib.load("models/causal_models/causal_distribution.pkl")
 CAUSAL_MEAN = stats["mean"]
 CAUSAL_INV_COV = stats["inv_cov"]
 
-ALPHA = 0.15 #I Decided to use 0.15 as a baseline and can be improved in further developments of the application
-
+ALPHA = -0.062445691942337414 #Computed from the whole training data using its 95th percentile and its mahalanobis distance
 
 def causal_predict(
     building_id,
