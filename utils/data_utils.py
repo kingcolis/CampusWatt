@@ -92,7 +92,7 @@ def request_to_dataframe(
 def feature_engineer_energy(df, train_stats=None, is_train=True):
     df = df.copy()
 
-    df = df.sort_values(["building_id", "meter", "timestamp"])
+    df = df.sort_values(["building_id", "meter"])
 
     group_cols = ["building_id", "meter"]
 

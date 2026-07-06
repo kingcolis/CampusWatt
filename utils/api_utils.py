@@ -103,13 +103,13 @@ async def predict(request: PredictionRequest, user=Depends(verify_token)):
 
 
 @app.post("/causal_predict")
-def causal_predict(request: PredictionRequest, user=Depends(verify_token)):
+async def causal_predict(request: PredictionRequest, user=Depends(verify_token)):
 
     df = pd.DataFrame([request.model_dump()])
     #df["timestamp"] = pd.to_datetime(df["timestamp"])
 
-    # causal model may depend on same engineered features
-    df = feature_engineer_energy(df)
+    #causal model may depend on same engineered features
+    #df = feature_engineer_energy(df, is_train=False) #ClickBait
 
     if "causal_model" not in globals() or causal_model is None:
         raise HTTPException(
@@ -141,7 +141,7 @@ async def login(request: LoginRequest):
     user_record = await user_retrieval(
         request.username
     )
-
+    print(user_record)
     if not user_record:
         raise HTTPException(
             status_code=401,
@@ -164,6 +164,9 @@ async def login(request: LoginRequest):
     token = create_token({
         "username": request.username
     })
+    print(request.password)
+    print(password_hash)
+    print(check_password_hash(password_hash, request.password))
 
     return {
         "status": "success",
@@ -171,14 +174,13 @@ async def login(request: LoginRequest):
         "token_type": "bearer"
     }
 
-@app.get("/create_user")
+@app.post("/create_user")
 async def create_user(new_user: RequestUser):
-    password_hash = generate_password_hash(new_user.password)
 
     await create_user_db(
-        new_user.username,
-        new_user.email,
-        password_hash=password_hash
+        username=new_user.username,
+        email=new_user.email,
+        password=new_user.password
     )
 
     return {

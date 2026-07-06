@@ -120,7 +120,7 @@ async def user_retrieval(username: str):
 
         row = await cursor.fetchone()
 
-    await db.close()
+    
 
     if row is None:
         return None
@@ -141,7 +141,7 @@ async def create_user_db(
 
     db = await init_db()
 
-    password_hash = generate_password_hash(password)
+    password_hash = generate_password_hash(password) ##bruh
 
     async with db.cursor() as cursor:
 
@@ -165,7 +165,7 @@ async def create_user_db(
         user_id = await cursor.fetchone()
 
     await db.commit()
-    await db.close()
+    
 
     return user_id[0]
 
@@ -225,20 +225,25 @@ async def save_causal_result(
     inference_time_ms: int,
     has_error: bool
 ):
-    await db.execute(
-        """
-        INSERT INTO causal_results(
+
+    db = await init_db()
+    
+    async with db.cursor() as cursor:
+        await cursor.execute(
+            """
+            INSERT INTO causal_results(
+                model_name,
+                input_data,
+                prediction_output,
+                inference_time_ms,
+                has_error
+            )
+            VALUES ($1,$2,$3,$4,$5)
+            """,
             model_name,
-            input_data,
-            prediction_output,
+            json.dumps(input_data, default=str),
+            json.dumps(output, default=str),
             inference_time_ms,
             has_error
         )
-        VALUES ($1,$2,$3,$4,$5)
-        """,
-        model_name,
-        json.dumps(input_data, default=str),
-        json.dumps(output, default=str),
-        inference_time_ms,
-        has_error
-    )
+    await db.commit()
