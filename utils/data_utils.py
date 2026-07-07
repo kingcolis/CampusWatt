@@ -63,6 +63,16 @@ class SLMSchema(BaseModel):
     confidence: float
     causal_effect: float
     retrieved_docs: str
+
+
+#For Causal Model
+class CausalSchema(BaseModel):
+    building_id: int
+    meter: float
+    air_temperature: float
+    dew_temperature: float
+    wind_speed: float
+
 # Requesting to be turned to a dataframe
 def request_to_dataframe(
     request: PredictionRequest

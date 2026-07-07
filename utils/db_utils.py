@@ -1,4 +1,5 @@
 import psycopg
+import json
 import os
 from werkzeug.security import generate_password_hash
 from dotenv import load_dotenv
@@ -225,9 +226,8 @@ async def save_causal_result(
     inference_time_ms: int,
     has_error: bool
 ):
-
     db = await init_db()
-    
+
     async with db.cursor() as cursor:
         await cursor.execute(
             """
@@ -238,12 +238,15 @@ async def save_causal_result(
                 inference_time_ms,
                 has_error
             )
-            VALUES ($1,$2,$3,$4,$5)
+            VALUES (%s, %s, %s, %s, %s)
             """,
-            model_name,
-            json.dumps(input_data, default=str),
-            json.dumps(output, default=str),
-            inference_time_ms,
-            has_error
+            (
+                model_name,
+                psycopg.types.json.Jsonb(input_data),
+                psycopg.types.json.Jsonb(output),
+                inference_time_ms,
+                has_error
+            )
         )
+
     await db.commit()

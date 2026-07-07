@@ -3,7 +3,14 @@ import numpy as np
 from scipy.spatial.distance import mahalanobis
 import joblib
 
-CAUSAL_COEF = pd.read_csv("models/causal_models/causal_coefficients.csv")
+CAUSAL_COEF = (
+    pd.read_csv(
+        "models/causal_models/causal_coefficients.csv",
+        index_col=0
+    )["Coefficient"]
+    .to_dict()
+)
+
 stats = joblib.load("models/causal_models/causal_distribution.pkl")
 
 CAUSAL_MEAN = stats["mean"]
@@ -11,7 +18,7 @@ CAUSAL_INV_COV = stats["inv_cov"]
 
 ALPHA = -0.062445691942337414 #Computed from the whole training data using its 95th percentile and its mahalanobis distance
 
-def causal_predict(
+def causal_predict_math(
     building_id,
     meter,
     air_temperature,

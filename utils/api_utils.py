@@ -12,7 +12,10 @@ from data_utils import *
 from db_utils import *
 from input_utils import *
 from slm_utils.reccomend import *
+from causal_utils import *
 import time
+from time import perf_counter
+from fastapi import HTTPException, Depends
 import asyncio
 from warnings import filterwarnings
 
@@ -103,37 +106,62 @@ async def predict(request: PredictionRequest, user=Depends(verify_token)):
 
 
 @app.post("/causal_predict")
-async def causal_predict(request: PredictionRequest, user=Depends(verify_token)):
+async def causal_predict(
+    request: CausalSchema,
+    user=Depends(verify_token)
+):
 
-    df = pd.DataFrame([request.model_dump()])
-    #df["timestamp"] = pd.to_datetime(df["timestamp"])
+    start = perf_counter()
 
-    #causal model may depend on same engineered features
-    #df = feature_engineer_energy(df, is_train=False) #ClickBait
+    try:
 
-    if "causal_model" not in globals() or causal_model is None:
-        raise HTTPException(
-            status_code=500,
-            detail="Causal model not loaded"
+        results = causal_predict_math(
+            building_id=request.building_id,
+            meter=request.meter,
+            air_temperature=request.air_temperature,
+            dew_temperature=request.dew_temperature,
+            wind_speed=request.wind_speed
         )
 
-    preds = causal_model.predict(df)
+        elapsed = int((perf_counter() - start) * 1000)
 
-    results =  {
-        "causal_prediction": float(preds[0].iloc[0] if hasattr(preds, "iloc") else prediction[0]),
-        "p_value": causal_model.pvalues.to_dict(),
-        "r_squared": float(causal_model.rsquared)
-    }
+        response = {
+            "status": "success",
+            "causal_prediction": results["prediction"],
+            "raw_prediction": results["raw_prediction"],
+            "confidence": results["confidence"],
+            "mahalanobis_distance": results["mahalanobis_distance"],
+            "inference_time_ms": elapsed
+        }
 
-    await save_causal_result(
-        "DoWhy-LinearRegression",
-        request.model_dump(),
-        results,
-        elapsed,
-        False
-    )
+        await save_causal_result(
+            model_name="DoWhy-LinearRegression-Math",
+            input_data=request.model_dump(),
+            output=response,
+            inference_time_ms=elapsed,
+            has_error=False
+        )
 
-    return results
+        return response
+
+    except Exception as e:
+
+        elapsed = int((perf_counter() - start) * 1000)
+
+        await save_causal_result(
+            model_name="DoWhy-LinearRegression-Math",
+            input_data=request.model_dump(),
+            output={
+                "error": str(e)
+            },
+            inference_time_ms=elapsed,
+            has_error=True
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
 
 @app.post("/login")
 async def login(request: LoginRequest):
