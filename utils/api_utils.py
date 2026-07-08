@@ -242,3 +242,219 @@ async def slm_recommend(
         "confidence": request.confidence,
         "sources": request.retrieved_docs
     }
+
+
+
+
+#Social Media Endpoints
+@app.post("/posts")
+async def create_post(
+    request: CreatePostSchema,
+    user=Depends(verify_token)
+):
+
+    post_id = await save_post(
+        author_id=user["id"],
+        title=request.title,
+        body=request.body,
+        images=request.images,
+        prediction_result_id=request.prediction_result_id,
+        causal_result_id=request.causal_result_id,
+        recommendation_result_id=request.recommendation_result_id,
+        visibility=request.visibility
+    )
+
+    return {
+        "status":"success",
+        "post_id":post_id
+    }
+
+
+@app.get("/posts")
+async def get_posts():
+
+    posts = await fetch_posts()
+
+    return {
+        "posts":posts
+    }
+
+
+@app.get("/posts/{post_id}")
+async def get_post(post_id: str):
+
+    post = await fetch_post(post_id)
+
+    return post
+
+@app.put("/posts/{post_id}")
+async def edit_post(
+    post_id: str,
+    request: UpdatePostSchema,
+    user=Depends(verify_token)
+):
+
+    await update_post(
+        post_id,
+        user["id"],
+        request
+    )
+
+    return {
+        "status":"success"
+    }
+
+@app.delete("/posts/{post_id}")
+async def delete_post(
+    post_id: str,
+    user=Depends(verify_token)
+):
+
+    await remove_post(
+        post_id,
+        user["id"]
+    )
+
+    return {
+        "status":"deleted"
+    }
+
+@app.post("/posts/{post_id}/like")
+async def like_post(
+    post_id: str,
+    user=Depends(verify_token)
+):
+
+    await like_post_db(
+        user["id"],
+        post_id
+    )
+
+    return {
+        "status":"liked"
+    }
+
+@app.delete("/posts/{post_id}/like")
+async def unlike_post(
+    post_id: str,
+    user=Depends(verify_token)
+):
+
+    await unlike_post_db(
+        user["id"],
+        post_id
+    )
+
+    return {
+        "status":"unliked"
+    }
+
+
+@app.post("/posts/{post_id}/save")
+async def save_post_endpoint(
+    post_id: str,
+    user=Depends(verify_token)
+):
+
+    await save_post_db(
+        user["id"],
+        post_id
+    )
+
+    return {
+        "status":"saved"
+    }
+
+@app.delete("/posts/{post_id}/save")
+async def unsave_post(
+    post_id: str,
+    user=Depends(verify_token)
+):
+
+    await unsave_post_db(
+        user["id"],
+        post_id
+    )
+
+    return {
+        "status":"unsaved"
+    }
+
+@app.post("/posts/{post_id}/comments")
+async def create_comment(
+    post_id: str,
+    request: CommentSchema,
+    user=Depends(verify_token)
+):
+
+    comment_id = await add_comment(
+        post_id,
+        user["id"],
+        request.text
+    )
+
+    return {
+        "comment_id":comment_id
+    }
+
+@app.get("/posts/{post_id}/comments")
+async def get_comments(
+    post_id: str
+):
+
+    return await fetch_comments(post_id)
+
+@app.delete("/comments/{comment_id}")
+async def delete_comment(
+    comment_id: str,
+    user=Depends(verify_token)
+):
+
+    await remove_comment(
+        comment_id,
+        user["id"]
+    )
+
+    return {
+        "status":"deleted"
+    }
+
+@app.post("/users/{user_id}/follow")
+async def follow_user(
+    user_id: int,
+    user=Depends(verify_token)
+):
+
+    await follow(
+        user["id"],
+        user_id
+    )
+
+    return {
+        "status":"following"
+    }
+
+@app.delete("/users/{user_id}/follow")
+async def unfollow_user(
+    user_id: int,
+    user=Depends(verify_token)
+):
+
+    await unfollow(
+        user["id"],
+        user_id
+    )
+
+    return {
+        "status":"unfollowed"
+    }
+
+@app.get("/users/{user_id}")
+async def profile(user_id: int):
+
+    return await get_profile(user_id)
+
+@app.get("/users/{user_id}/posts")
+async def profile_posts(user_id: int):
+
+    return await fetch_user_posts(user_id)
