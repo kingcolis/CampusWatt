@@ -250,3 +250,32 @@ async def save_causal_result(
         )
 
     await db.commit()
+
+
+async def save_recommendation_result(
+    recommendation: str,
+    confidence_score: float,
+    source_documents: list[str]
+):
+
+    db = await init_db()
+
+    async with db.cursor() as cursor:
+
+        await cursor.execute(
+            """
+            INSERT INTO recommendation_results(
+                recommendation,
+                confidence_score,
+                source_documents
+            )
+            VALUES (%s, %s, %s)
+            """,
+            (
+                recommendation,
+                confidence_score,
+                psycopg.types.json.Jsonb(source_documents)
+            )
+        )
+
+    await db.commit()

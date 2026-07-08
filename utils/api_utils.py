@@ -1,4 +1,4 @@
-﻿from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from werkzeug.security import check_password_hash
@@ -217,17 +217,28 @@ async def create_user(new_user: RequestUser):
     }
 
 
-@app.get("/recommend")
-async def slm_recommend(request: SLMSchema):
-    await reccomend(
-        request.prediction,
-        request.causal_effect,
-        request.confidence,
-        request.retrieved_docs
+@app.post("/recommend")
+async def slm_recommend(
+    request: SLMSchema,
+    user=Depends(verify_token)
+):
+
+    recommendation = generate_recommendation(
+        prediction=request.prediction,
+        causal_effect=request.causal_effect,
+        confidence=request.confidence,
+        retrieved_docs=request.retrieved_docs
     )
 
+    await save_recommendation_result(
+        recommendation=recommendation,
+        confidence_score=request.confidence,
+        source_documents=request.retrieved_docs
+    )
 
     return {
         "status": "success",
-        "message": "Reccomendation Distributed successfully"
+        "recommendation": recommendation,
+        "confidence": request.confidence,
+        "sources": request.retrieved_docs
     }

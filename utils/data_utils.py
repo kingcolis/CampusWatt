@@ -60,9 +60,9 @@ class RequestUser(BaseModel):
 #For SLM Recommendation Engine
 class SLMSchema(BaseModel):
     prediction: float
-    confidence: float
     causal_effect: float
-    retrieved_docs: str
+    confidence: float
+    retrieved_docs: list[str]
 
 
 #For Causal Model
