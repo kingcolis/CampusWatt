@@ -1,4 +1,4 @@
-﻿from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from werkzeug.security import check_password_hash
@@ -12,7 +12,10 @@ from data_utils import *
 from db_utils import *
 from input_utils import *
 from slm_utils.reccomend import *
+from causal_utils import *
 import time
+from time import perf_counter
+from fastapi import HTTPException, Depends
 import asyncio
 from warnings import filterwarnings
 
@@ -56,7 +59,7 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(auth_scheme
 
 #General Utils
 model = joblib.load("models/rfr_model.pkl")
-#causal_model = joblib.load("models/causal_models/model.pkl") //later
+causal_model = joblib.load("models/causal_models/causal_linear_model.pkl") 
 
 print(model.feature_names_in_)
 
@@ -103,27 +106,62 @@ async def predict(request: PredictionRequest, user=Depends(verify_token)):
 
 
 @app.post("/causal_predict")
-def causal_predict(request: PredictionRequest, user=Depends(verify_token)):
+async def causal_predict(
+    request: CausalSchema,
+    user=Depends(verify_token)
+):
 
-    df = pd.DataFrame([request.model_dump()])
-    df["timestamp"] = pd.to_datetime(df["timestamp"])
+    start = perf_counter()
 
-    # causal model may depend on same engineered features
-    df = feature_engineer_energy(df)
+    try:
 
-    if "causal_model" not in globals() or causal_model is None:
-        raise HTTPException(
-            status_code=500,
-            detail="Causal model not loaded"
+        results = causal_predict_math(
+            building_id=request.building_id,
+            meter=request.meter,
+            air_temperature=request.air_temperature,
+            dew_temperature=request.dew_temperature,
+            wind_speed=request.wind_speed
         )
 
-    preds = causal_model.predict(df)
+        elapsed = int((perf_counter() - start) * 1000)
 
-    return {
-        "causal_prediction": float(preds[0]),
-        "p_value": getattr(causal_model, "p_value", None),
-        "residuals": getattr(causal_model, "residuals", None)
-    }
+        response = {
+            "status": "success",
+            "causal_prediction": results["prediction"],
+            "raw_prediction": results["raw_prediction"],
+            "confidence": results["confidence"],
+            "mahalanobis_distance": results["mahalanobis_distance"],
+            "inference_time_ms": elapsed
+        }
+
+        await save_causal_result(
+            model_name="DoWhy-LinearRegression-Math",
+            input_data=request.model_dump(),
+            output=response,
+            inference_time_ms=elapsed,
+            has_error=False
+        )
+
+        return response
+
+    except Exception as e:
+
+        elapsed = int((perf_counter() - start) * 1000)
+
+        await save_causal_result(
+            model_name="DoWhy-LinearRegression-Math",
+            input_data=request.model_dump(),
+            output={
+                "error": str(e)
+            },
+            inference_time_ms=elapsed,
+            has_error=True
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
 
 @app.post("/login")
 async def login(request: LoginRequest):
@@ -131,7 +169,7 @@ async def login(request: LoginRequest):
     user_record = await user_retrieval(
         request.username
     )
-
+    print(user_record)
     if not user_record:
         raise HTTPException(
             status_code=401,
@@ -154,6 +192,9 @@ async def login(request: LoginRequest):
     token = create_token({
         "username": request.username
     })
+    print(request.password)
+    print(password_hash)
+    print(check_password_hash(password_hash, request.password))
 
     return {
         "status": "success",
@@ -161,14 +202,13 @@ async def login(request: LoginRequest):
         "token_type": "bearer"
     }
 
-@app.get("/create_user")
+@app.post("/create_user")
 async def create_user(new_user: RequestUser):
-    password_hash = generate_password_hash(new_user.password)
 
     await create_user_db(
-        new_user.username,
-        new_user.email,
-        password_hash=password_hash
+        username=new_user.username,
+        email=new_user.email,
+        password=new_user.password
     )
 
     return {
@@ -177,17 +217,244 @@ async def create_user(new_user: RequestUser):
     }
 
 
-@app.get("/recommend")
-async def slm_recommend(request: SLMSchema):
-    await reccomend(
-        request.prediction,
-        request.causal_effect,
-        request.confidence,
-        request.retrieved_docs
+@app.post("/recommend")
+async def slm_recommend(
+    request: SLMSchema,
+    user=Depends(verify_token)
+):
+
+    recommendation = generate_recommendation(
+        prediction=request.prediction,
+        causal_effect=request.causal_effect,
+        confidence=request.confidence,
+        retrieved_docs=request.retrieved_docs
     )
 
+    await save_recommendation_result(
+        recommendation=recommendation,
+        confidence_score=request.confidence,
+        source_documents=request.retrieved_docs
+    )
 
     return {
         "status": "success",
-        "message": "Reccomendation Distributed successfully"
+        "recommendation": recommendation,
+        "confidence": request.confidence,
+        "sources": request.retrieved_docs
     }
+
+
+
+
+#Social Media Endpoints
+@app.post("/posts")
+async def create_post(
+    request: CreatePostSchema,
+    user=Depends(verify_token)
+):
+
+    post_id = await save_post(
+        author_id=user["id"],
+        title=request.title,
+        body=request.body,
+        images=request.images,
+        prediction_result_id=request.prediction_result_id,
+        causal_result_id=request.causal_result_id,
+        recommendation_result_id=request.recommendation_result_id,
+        visibility=request.visibility
+    )
+
+    return {
+        "status":"success",
+        "post_id":post_id
+    }
+
+
+@app.get("/posts")
+async def get_posts():
+
+    posts = await fetch_posts()
+
+    return {
+        "posts":posts
+    }
+
+
+@app.get("/posts/{post_id}")
+async def get_post(post_id: str):
+
+    post = await fetch_post(post_id)
+
+    return post
+
+@app.put("/posts/{post_id}")
+async def edit_post(
+    post_id: str,
+    request: UpdatePostSchema,
+    user=Depends(verify_token)
+):
+
+    await update_post(
+        post_id,
+        user["id"],
+        request
+    )
+
+    return {
+        "status":"success"
+    }
+
+@app.delete("/posts/{post_id}")
+async def delete_post(
+    post_id: str,
+    user=Depends(verify_token)
+):
+
+    await remove_post(
+        post_id,
+        user["id"]
+    )
+
+    return {
+        "status":"deleted"
+    }
+
+@app.post("/posts/{post_id}/like")
+async def like_post(
+    post_id: str,
+    user=Depends(verify_token)
+):
+
+    await like_post_db(
+        user["id"],
+        post_id
+    )
+
+    return {
+        "status":"liked"
+    }
+
+@app.delete("/posts/{post_id}/like")
+async def unlike_post(
+    post_id: str,
+    user=Depends(verify_token)
+):
+
+    await unlike_post_db(
+        user["id"],
+        post_id
+    )
+
+    return {
+        "status":"unliked"
+    }
+
+
+@app.post("/posts/{post_id}/save")
+async def save_post_endpoint(
+    post_id: str,
+    user=Depends(verify_token)
+):
+
+    await save_post_db(
+        user["id"],
+        post_id
+    )
+
+    return {
+        "status":"saved"
+    }
+
+@app.delete("/posts/{post_id}/save")
+async def unsave_post(
+    post_id: str,
+    user=Depends(verify_token)
+):
+
+    await unsave_post_db(
+        user["id"],
+        post_id
+    )
+
+    return {
+        "status":"unsaved"
+    }
+
+@app.post("/posts/{post_id}/comments")
+async def create_comment(
+    post_id: str,
+    request: CommentSchema,
+    user=Depends(verify_token)
+):
+
+    comment_id = await add_comment(
+        post_id,
+        user["id"],
+        request.text
+    )
+
+    return {
+        "comment_id":comment_id
+    }
+
+@app.get("/posts/{post_id}/comments")
+async def get_comments(
+    post_id: str
+):
+
+    return await fetch_comments(post_id)
+
+@app.delete("/comments/{comment_id}")
+async def delete_comment(
+    comment_id: str,
+    user=Depends(verify_token)
+):
+
+    await remove_comment(
+        comment_id,
+        user["id"]
+    )
+
+    return {
+        "status":"deleted"
+    }
+
+@app.post("/users/{user_id}/follow")
+async def follow_user(
+    user_id: int,
+    user=Depends(verify_token)
+):
+
+    await follow(
+        user["id"],
+        user_id
+    )
+
+    return {
+        "status":"following"
+    }
+
+@app.delete("/users/{user_id}/follow")
+async def unfollow_user(
+    user_id: int,
+    user=Depends(verify_token)
+):
+
+    await unfollow(
+        user["id"],
+        user_id
+    )
+
+    return {
+        "status":"unfollowed"
+    }
+
+@app.get("/users/{user_id}")
+async def profile(user_id: int):
+
+    return await get_profile(user_id)
+
+@app.get("/users/{user_id}/posts")
+async def profile_posts(user_id: int):
+
+    return await fetch_user_posts(user_id)

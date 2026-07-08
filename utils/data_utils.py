@@ -2,11 +2,13 @@
 import pandas as pd
 import numpy as np
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime, timedelta
 import jwt
 from dotenv import load_dotenv
 import os
+from uuid import UUID
+
 
 #Global Variables
 load_dotenv()
@@ -60,9 +62,67 @@ class RequestUser(BaseModel):
 #For SLM Recommendation Engine
 class SLMSchema(BaseModel):
     prediction: float
-    confidence: float
     causal_effect: float
-    retrieved_docs: str
+    confidence: float
+    retrieved_docs: list[str]
+
+
+#For Causal Model
+class CausalSchema(BaseModel):
+    building_id: int
+    meter: float
+    air_temperature: float
+    dew_temperature: float
+    wind_speed: float
+
+
+#Social Media Schemas
+class CreatePostSchema(BaseModel):
+    title: str
+    body: Optional[str] = None
+    images: list[str] = []
+
+    prediction_result_id: Optional[str] = None
+    causal_result_id: Optional[str] = None
+    recommendation_result_id: Optional[str] = None
+
+    visibility: str = "public"
+
+
+class UpdatePostSchema(BaseModel):
+    title: Optional[str] = None
+    body: Optional[str] = None
+    images: Optional[list[str]] = None
+    visibility: Optional[str] = None
+
+
+class CommentSchema(BaseModel):
+    text: str
+
+class CreatePostSchema(BaseModel):
+
+    title: str
+    body: str
+
+    images: List[str] = []
+
+    prediction_result_id: Optional[UUID] = None
+    causal_result_id: Optional[UUID] = None
+    recommendation_result_id: Optional[UUID] = None
+
+    visibility: str = "public"
+
+
+class UpdatePostSchema(BaseModel):
+
+    title: str
+    body: str
+
+    images: List[str] = []
+
+    visibility: str = "public"
+
+
 # Requesting to be turned to a dataframe
 def request_to_dataframe(
     request: PredictionRequest
@@ -92,7 +152,7 @@ def request_to_dataframe(
 def feature_engineer_energy(df, train_stats=None, is_train=True):
     df = df.copy()
 
-    df = df.sort_values(["building_id", "meter", "timestamp"])
+    df = df.sort_values(["building_id", "meter"])
 
     group_cols = ["building_id", "meter"]
 

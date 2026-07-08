@@ -1,6 +1,9 @@
 import psycopg
+import json
 import os
+from psycopg.rows import dict_row
 from werkzeug.security import generate_password_hash
+import uuid
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -82,11 +85,123 @@ async def init_db():
             created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
         );
 
+        --Social Media Tables--
+
+        CREATE OR REPLACE FUNCTION update_timestamp()
+        RETURNS TRIGGER AS
+        $$
+        BEGIN
+            NEW.updated_at = CURRENT_TIMESTAMP;
+            RETURN NEW;
+        END;
+        $$
+        LANGUAGE plpgsql;
+
+        CREATE TABLE IF NOT EXISTS posts(
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+            author_id BIGINT NOT NULL
+                REFERENCES users(id)
+                ON DELETE CASCADE,
+
+            title TEXT NOT NULL
+                CHECK (length(trim(title)) > 0),
+            body TEXT NOT NULL,
+            images JSONB DEFAULT '[]'::jsonb,
+            prediction_result_id UUID
+                REFERENCES prediction_results(id)
+                ON DELETE SET NULL,
+
+            causal_result_id UUID
+                REFERENCES causal_results(id)
+                ON DELETE SET NULL,
+
+            recommendation_result_id UUID
+                REFERENCES recommendation_results(id)
+                ON DELETE SET NULL,
+
+            visibility VARCHAR(20)
+                DEFAULT 'public',
+            CHECK (
+                visibility IN ('public','private','friends')
+            ),
+
+            created_at TIMESTAMPTZ
+            DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMPTZ
+                DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS likes(
+            user_id BIGINT NOT NULL REFERENCES users(id)
+                ON DELETE CASCADE,
+            post_id UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+            PRIMARY KEY (user_id, post_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS saved_posts(
+            user_id BIGINT NOT NULL REFERENCES users(id)
+                ON DELETE CASCADE,
+            post_id UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+            PRIMARY KEY (user_id, post_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS followers(
+            follower_id BIGINT NOT NULL REFERENCES users(id)
+                ON DELETE CASCADE,
+            following_id BIGINT NOT NULL REFERENCES users(id)
+                ON DELETE CASCADE,
+            PRIMARY KEY (follower_id, following_id),
+            CHECK (follower_id <> following_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS comments(
+            id UUID NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+            post_id UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+            user_id BIGINT NOT NULL REFERENCES users(id)
+                ON DELETE CASCADE,
+            parent_comment_id UUID
+                REFERENCES comments(id)
+                ON DELETE CASCADE,
+            text TEXT NOT NULL
+                CHECK (length(trim(title)) > 0),
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_posts_created
+        ON posts(created_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_posts_author
+        ON posts(author_id);
+
+        CREATE INDEX IF NOT EXISTS idx_comments_post
+        ON comments(post_id);
+
+        CREATE INDEX IF NOT EXISTS idx_comments_created
+        ON comments(created_at DESC);
+
         CREATE INDEX IF NOT EXISTS idx_prediction_created
         ON prediction_results(created_at);
 
         CREATE INDEX IF NOT EXISTS idx_causal_created
         ON causal_results(created_at);
+
+        CREATE INDEX IF NOT EXISTS idx_followers_follower
+        ON followers(follower_id);
+
+        CREATE INDEX IF NOT EXISTS idx_followers_following
+        ON followers(following_id);
+
+        CREATE INDEX IF NOT EXISTS idx_likes_post
+        ON likes(post_id);
+
+        CREATE INDEX IF NOT EXISTS idx_saved_posts_user
+        ON saved_posts(user_id);
+        
+        CREATE TRIGGER update_posts_timestamp
+        BEFORE UPDATE ON posts
+        FOR EACH ROW
+        EXECUTE FUNCTION update_timestamp();
         """)
 
     await db.commit()
@@ -120,7 +235,7 @@ async def user_retrieval(username: str):
 
         row = await cursor.fetchone()
 
-    await db.close()
+    
 
     if row is None:
         return None
@@ -141,7 +256,7 @@ async def create_user_db(
 
     db = await init_db()
 
-    password_hash = generate_password_hash(password)
+    password_hash = generate_password_hash(password) ##bruh
 
     async with db.cursor() as cursor:
 
@@ -165,7 +280,7 @@ async def create_user_db(
         user_id = await cursor.fetchone()
 
     await db.commit()
-    await db.close()
+    
 
     return user_id[0]
 
@@ -216,3 +331,242 @@ async def save_prediction_result(
         )
 
     await db.commit()
+
+
+async def save_causal_result(
+    model_name: str,
+    input_data: dict,
+    output: dict,
+    inference_time_ms: int,
+    has_error: bool
+):
+    db = await init_db()
+
+    async with db.cursor() as cursor:
+        await cursor.execute(
+            """
+            INSERT INTO causal_results(
+                model_name,
+                input_data,
+                prediction_output,
+                inference_time_ms,
+                has_error
+            )
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (
+                model_name,
+                psycopg.types.json.Jsonb(input_data),
+                psycopg.types.json.Jsonb(output),
+                inference_time_ms,
+                has_error
+            )
+        )
+
+    await db.commit()
+
+
+async def save_recommendation_result(
+    recommendation: str,
+    confidence_score: float,
+    source_documents: list[str]
+):
+
+    db = await init_db()
+
+    async with db.cursor() as cursor:
+
+        await cursor.execute(
+            """
+            INSERT INTO recommendation_results(
+                recommendation,
+                confidence_score,
+                source_documents
+            )
+            VALUES (%s, %s, %s)
+            """,
+            (
+                recommendation,
+                confidence_score,
+                psycopg.types.json.Jsonb(source_documents)
+            )
+        )
+
+    await db.commit()
+
+
+#Social Media Functions
+async def save_post(
+    author_id: int,
+    title: str,
+    body: str,
+    images: list,
+    prediction_result_id=None,
+    causal_result_id=None,
+    recommendation_result_id=None,
+    visibility="public"
+):
+
+    db = await init_db()
+
+    post_id = str(uuid.uuid4())
+
+    async with db.cursor() as cursor:
+
+        await cursor.execute("""
+        INSERT INTO posts(
+            id,
+            author_id,
+            title,
+            body,
+            images,
+            prediction_result_id,
+            causal_result_id,
+            recommendation_result_id,
+            visibility
+        )
+        VALUES(
+            %s,%s,%s,%s,%s,%s,%s,%s,%s
+        )
+        """,
+        (
+            post_id,
+            author_id,
+            title,
+            body,
+            json.dumps(images),
+            prediction_result_id,
+            causal_result_id,
+            recommendation_result_id,
+            visibility
+        ))
+
+    await db.commit()
+
+    return post_id
+
+
+async def fetch_posts(limit=25):
+
+    db = await init_db()
+
+    async with db.cursor(row_factory=dict_row) as cursor:
+
+        await cursor.execute("""
+        SELECT
+            p.*,
+            u.username,
+
+            (
+                SELECT COUNT(*)
+                FROM likes
+                WHERE post_id=p.id
+            ) AS likes,
+
+            (
+                SELECT COUNT(*)
+                FROM comments
+                WHERE post_id=p.id
+            ) AS comments
+
+        FROM posts p
+
+        JOIN users u
+        ON p.author_id=u.id
+
+        ORDER BY p.created_at DESC
+
+        LIMIT %s
+        """,
+        (limit,))
+
+        return await cursor.fetchall()
+
+
+async def fetch_post(post_id):
+
+    db = await init_db()
+
+    async with db.cursor(row_factory=dict_row) as cursor:
+
+        await cursor.execute("""
+        SELECT
+            p.*,
+            u.username
+
+        FROM posts p
+
+        JOIN users u
+        ON u.id=p.author_id
+
+        WHERE p.id=%s
+        """,
+        (post_id,))
+
+        return await cursor.fetchone()
+
+
+async def remove_post(
+    post_id,
+    author_id
+):
+
+    db = await init_db()
+
+    async with db.cursor() as cursor:
+
+        await cursor.execute("""
+        DELETE FROM posts
+
+        WHERE
+            id=%s
+        AND
+            author_id=%s
+        """,
+        (
+            post_id,
+            author_id
+        ))
+
+    await db.commit()
+
+
+async def update_post(
+    post_id,
+    author_id,
+    request
+):
+
+    db = await init_db()
+
+    async with db.cursor() as cursor:
+
+        await cursor.execute("""
+        UPDATE posts
+
+        SET
+
+            title=%s,
+            body=%s,
+            images=%s,
+            visibility=%s,
+            updated_at=NOW()
+
+        WHERE
+
+            id=%s
+        AND
+            author_id=%s
+        """,
+        (
+            request.title,
+            request.body,
+            json.dumps(request.images),
+            request.visibility,
+            post_id,
+            author_id
+        ))
+
+    await db.commit()
+
+
