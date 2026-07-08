@@ -19,6 +19,9 @@ from fastapi import HTTPException, Depends
 import asyncio
 from warnings import filterwarnings
 
+#For Protection
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
 filterwarnings("ignore")
 
 app = FastAPI()
@@ -34,28 +37,41 @@ app.add_middleware(
 )
 
 
-#For Protection
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-
 auth_scheme = HTTPBearer()
 
-def verify_token(credentials: HTTPAuthorizationCredentials = Depends(auth_scheme)):
+async def verify_token(
+    credentials: HTTPAuthorizationCredentials = Depends(auth_scheme)
+):
+    token = credentials.credentials
 
-    try:
-        decoded = jwt.decode(
-            credentials.credentials,
-            SECRET_KEY,
-            algorithms=[ALGORITHM]
-        )
-        return decoded
+    payload = jwt.decode(
+        token,
+        SECRET_KEY,
+        algorithms=["HS256"]
+    )
 
-    except Exception:
+    username = payload["data"]["username"]
+
+    user = await user_retrieval(username)
+
+    if user is None:
         raise HTTPException(
             status_code=401,
-            detail="Invalid or expired token"
+            detail="User not found"
         )
 
+    return user
 
+
+@app.on_event("startup")
+async def startup():
+    await DB_POOL.open()
+    await migrate_db()
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    await DB_POOL.close()
 
 #General Utils
 model = joblib.load("models/rfr_model.pkl")
@@ -252,6 +268,8 @@ async def create_post(
     request: CreatePostSchema,
     user=Depends(verify_token)
 ):
+    print(user)
+    print(type(user))
 
     post_id = await save_post(
         author_id=user["id"],

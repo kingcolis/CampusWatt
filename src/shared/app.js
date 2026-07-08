@@ -1,7 +1,3 @@
-/* =========================================================
-   CampusEnergy — shared UI behavior
-   ========================================================= */
-
 const CE = (() => {
 
   function initRevealOnScroll(root = document) {
