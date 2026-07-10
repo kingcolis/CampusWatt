@@ -1,67 +1,82 @@
 // about.js
-// About page: API health, backend version, GitHub links, developer information
 
-import { CampusEnergyAPI } from './shared/api.js';
-import { CE } from './shared/app.js';
+const AboutPage = (() => {
 
-// DOM refs - expected HTML structure
-const DOM = {
-    apiStatus: document.getElementById('api-status'),
-    apiVersion: document.getElementById('api-version'),
-    githubLink: document.getElementById('github-link'),
-    devInfo: document.getElementById('dev-info'),
-    serverTime: document.getElementById('server-time'),
-};
+  let dom = {};
 
-// Health check
-async function checkHealth() {
-    try {
-        const response = await CampusEnergyAPI.healthCheck();
-        const status = response.status || 'ok';
-        DOM.apiStatus.textContent = `✅ ${status.toUpperCase()}`;
-        DOM.apiStatus.style.color = 'var(--success-color)';
-        if (response.version) {
-            DOM.apiVersion.textContent = `v${response.version}`;
-        }
-        if (response.timestamp) {
-            const date = new Date(response.timestamp);
-            DOM.serverTime.textContent = date.toLocaleString();
-        }
-    } catch (e) {
-        DOM.apiStatus.textContent = '❌ OFFLINE';
-        DOM.apiStatus.style.color = 'var(--error-color)';
-        DOM.apiVersion.textContent = 'Unknown';
-        console.error('Health check error:', e);
-    }
-}
+  function resolveDOM() {
+    dom = {
+      healthDot:       document.getElementById('apiHealthDot'),
+      healthStatus:    document.getElementById('apiHealthStatus'),
+      statusVal:       document.getElementById('apiStatusVal'),
+      backendVersion:  document.getElementById('backendVersion'),
+      apiBase:         document.getElementById('apiBase'),
+      apiUptime:       document.getElementById('apiUptime'),
+      apiResponseTime: document.getElementById('apiResponseTime'),
+      apiDocsLink:     document.getElementById('apiDocsLink'),
+    };
+  }
 
-// Set developer info
-function setDevInfo() {
-    // You can customize these
-    DOM.devInfo.innerHTML = `
-        <p><strong>CampusWatt</strong> - Machine Learning + Social Media for Campus Energy Analytics</p>
-        <p>Built with ❤️ by the CampusWatt Team</p>
-        <p>Version 2.0.0</p>
-    `;
-    DOM.githubLink.href = 'https://github.com/your-repo/campuswatt';
-    DOM.githubLink.textContent = 'GitHub Repository';
-}
-
-// Init
-async function init() {
+  async function init() {
+    resolveDOM();
+    populateStaticInfo();
     await checkHealth();
-    setDevInfo();
+  }
 
-    // CE.initAll
-    CE.initAll({
-        page: 'about',
-        onNav: () => {},
-    });
-}
+  /* ══════════════════════════════════════════════════════════
+     STATIC INFO
+  ══════════════════════════════════════════════════════════ */
+  function populateStaticInfo() {
+    const base = CampusEnergyAPI.config?.BASE_URL || '/api/v1';
+    if (dom.apiBase) dom.apiBase.textContent = base;
+    if (dom.apiDocsLink) dom.apiDocsLink.href = base.replace(/\/v\d+$/, '/docs');
+  }
 
-// Start
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-} else {
-    init();
-}
+  /* ══════════════════════════════════════════════════════════
+     HEALTH CHECK
+  ══════════════════════════════════════════════════════════ */
+  async function checkHealth() {
+    setStatus('checking', 'Checking…');
+
+    const start = Date.now();
+    try {
+      const result = await CampusEnergyAPI.healthCheck();
+      const ms     = Date.now() - start;
+
+      setStatus('ok', 'All systems operational');
+
+      if (dom.statusVal)       dom.statusVal.textContent = result.status || 'ok';
+      if (dom.backendVersion)  dom.backendVersion.textContent = result.version || '—';
+      if (dom.apiUptime)       dom.apiUptime.textContent = result.uptime != null ? `${Number(result.uptime).toFixed(2)}%` : '—';
+      if (dom.apiResponseTime) dom.apiResponseTime.textContent = `${ms} ms`;
+    } catch (err) {
+      const ms = Date.now() - start;
+      setStatus('error', 'Cannot reach backend');
+
+      if (dom.statusVal)       dom.statusVal.textContent = 'unreachable';
+      if (dom.backendVersion)  dom.backendVersion.textContent = '—';
+      if (dom.apiUptime)       dom.apiUptime.textContent = '—';
+      if (dom.apiResponseTime) dom.apiResponseTime.textContent = `${ms} ms (timeout)`;
+
+      CE.toast('Backend is unreachable. Some features may be unavailable.', 'error');
+    }
+  }
+
+  function setStatus(state, label) {
+    if (dom.healthDot) {
+      dom.healthDot.className = `health-dot ${state}`;
+    }
+    if (dom.healthStatus) {
+      dom.healthStatus.textContent = label;
+      dom.healthStatus.style.color = state === 'ok'
+        ? 'var(--mint)'
+        : state === 'error'
+          ? 'var(--danger)'
+          : 'var(--text-dim)';
+    }
+  }
+
+  return { init };
+})();
+
+CE.initAll({ topbar: { active: 'about' }, onReady: AboutPage.init });

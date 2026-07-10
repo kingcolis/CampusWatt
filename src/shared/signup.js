@@ -1,160 +1,110 @@
 // signup.js
-// Signup form with validation, duplicate handling, redirect
 
-import { CampusEnergyAPI } from './shared/api.js';
-import { CE } from './shared/app.js';
+const SignupPage = (() => {
 
-// DOM refs - expected HTML structure
-const DOM = {
-    form: document.getElementById('signup-form'),
-    username: document.getElementById('username'),
-    email: document.getElementById('email'),
-    password: document.getElementById('password'),
-    passwordConfirm: document.getElementById('password-confirm'),
-    submitBtn: document.getElementById('signup-submit'),
-    errorMsg: document.getElementById('signup-error'),
-    usernameHint: document.getElementById('username-hint'),
-    passwordHint: document.getElementById('password-hint'),
-};
+  function init() {
+    // Already logged in → go home
+    const session = CampusEnergyAPI.readSession();
+    if (session) {
+      window.location.replace('profile.html');
+      return;
+    }
 
-// Check already logged in
-async function checkAlreadyLoggedIn() {
-    try {
-        const user = await CampusEnergyAPI.getCurrentUser();
-        if (user && user.id) {
-            window.location.href = '/posts.html';
-            return true;
-        }
-    } catch (e) {}
-    return false;
-}
+    const form          = document.getElementById('signupForm');
+    const submitBtn     = document.getElementById('submitBtn');
+    const usernameField = document.getElementById('usernameField');
+    const emailField    = document.getElementById('emailField');
+    const passField     = document.getElementById('passwordField');
+    const confirmField  = document.getElementById('confirmField');
+    const usernameInput = document.getElementById('username');
+    const emailInput    = document.getElementById('email');
+    const passInput     = document.getElementById('password');
+    const confirmInput  = document.getElementById('confirm');
+    const strengthBar   = document.getElementById('strengthBar');
 
-// Validation helpers
-function validateUsername(username) {
-    if (username.length < 3) return 'Username must be at least 3 characters';
-    if (!/^[a-zA-Z0-9_]+$/.test(username)) return 'Username can only contain letters, numbers, and underscores';
-    return null;
-}
-
-function validateEmail(email) {
-    if (!email) return 'Email is required';
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Please enter a valid email address';
-    return null;
-}
-
-function validatePassword(password) {
-    if (password.length < 8) return 'Password must be at least 8 characters';
-    // Optional: add more complexity checks
-    return null;
-}
-
-// Real-time validation hints
-function setupLiveValidation() {
-    DOM.username.addEventListener('blur', () => {
-        const val = DOM.username.value.trim();
-        const error = validateUsername(val);
-        DOM.usernameHint.textContent = error || '';
-        DOM.usernameHint.style.color = error ? 'var(--error-color)' : 'var(--success-color)';
+    // Live validations
+    usernameInput.addEventListener('input', () => {
+      const v = usernameInput.value.trim();
+      if (v.length > 0) CE.validateField(usernameField, isValidUsername(v), 'Pick a username (3+ chars, letters/numbers/underscores).');
     });
 
-    DOM.password.addEventListener('input', () => {
-        const val = DOM.password.value;
-        const error = validatePassword(val);
-        DOM.passwordHint.textContent = error || (val.length > 0 ? '✓ Strong enough' : '');
-        DOM.passwordHint.style.color = error ? 'var(--error-color)' : 'var(--success-color)';
+    emailInput.addEventListener('blur', () => {
+      const v = emailInput.value.trim();
+      if (v.length > 0) CE.validateField(emailField, isEmail(v), 'Enter a valid email address.');
     });
-}
 
-// Handle signup
-async function handleSignup(e) {
-    e.preventDefault();
+    passInput.addEventListener('input', () => {
+      updateStrength(passInput.value, strengthBar);
+      if (confirmInput.value.length > 0) CE.validateField(confirmField, confirmInput.value === passInput.value, 'Passwords do not match.');
+    });
 
-    const username = DOM.username.value.trim();
-    const email = DOM.email.value.trim();
-    const password = DOM.password.value;
-    const passwordConfirm = DOM.passwordConfirm.value;
+    confirmInput.addEventListener('input', () => {
+      if (confirmInput.value.length > 0) CE.validateField(confirmField, confirmInput.value === passInput.value, 'Passwords do not match.');
+    });
 
-    // Clear old errors
-    DOM.errorMsg.style.display = 'none';
+    passInput.addEventListener('blur', () => {
+      if (passInput.value.length > 0) CE.validateField(passField, passInput.value.length >= 8, 'Use at least 8 characters.');
+    });
 
-    // Validate all
-    const usernameError = validateUsername(username);
-    const emailError = validateEmail(email);
-    const passwordError = validatePassword(password);
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
 
-    if (usernameError) {
-        CE.toast(usernameError, 'warning');
-        DOM.username.focus();
-        return;
-    }
-    if (emailError) {
-        CE.toast(emailError, 'warning');
-        DOM.email.focus();
-        return;
-    }
-    if (passwordError) {
-        CE.toast(passwordError, 'warning');
-        DOM.password.focus();
-        return;
-    }
-    if (password !== passwordConfirm) {
-        CE.toast('Passwords do not match', 'warning');
-        DOM.passwordConfirm.focus();
-        return;
-    }
+      const username = usernameInput.value.trim();
+      const email    = emailInput.value.trim();
+      const password = passInput.value;
+      const confirm  = confirmInput.value;
 
-    CE.setButtonLoading(DOM.submitBtn, true);
+      const usernameOk = isValidUsername(username);
+      const emailOk    = isEmail(email);
+      const passwordOk = password.length >= 8;
+      const confirmOk  = confirm.length > 0 && confirm === password;
 
-    try {
-        const response = await CampusEnergyAPI.signup({
-            username,
-            email,
-            password,
-        });
-        CE.toast('Account created successfully!', 'success');
-        // Redirect to login with success message
-        window.location.href = '/login.html?signup=success';
-    } catch (e) {
-        let msg = 'Signup failed. Please try again.';
-        if (e.status === 409) {
-            msg = 'Username or email already taken.';
-        } else if (e.message) {
-            msg = e.message;
-        }
-        DOM.errorMsg.textContent = msg;
-        DOM.errorMsg.style.display = 'block';
+      CE.validateField(usernameField, usernameOk, 'Pick a username (3+ chars, letters/numbers/underscores).');
+      CE.validateField(emailField, emailOk, 'Enter a valid email address.');
+      CE.validateField(passField, passwordOk, 'Use at least 8 characters.');
+      CE.validateField(confirmField, confirmOk, 'Passwords do not match.');
+
+      if (!usernameOk || !emailOk || !passwordOk || !confirmOk) return;
+
+      CE.setButtonLoading(submitBtn, true);
+      try {
+        await CampusEnergyAPI.signup({ username, email, password, confirmPassword: confirm });
+        CE.toast(`Welcome to CampusEnergy, ${username}!`, 'success', 1800);
+        setTimeout(() => (window.location.href = 'profile.html'), 700);
+      } catch (err) {
+        const msg = err.message || 'Could not create account.';
         CE.toast(msg, 'error');
-        console.error('Signup error:', e);
-    } finally {
-        CE.setButtonLoading(DOM.submitBtn, false);
-    }
-}
-
-// Init
-async function init() {
-    const loggedIn = await checkAlreadyLoggedIn();
-    if (loggedIn) return;
-
-    DOM.form.addEventListener('submit', handleSignup);
-    setupLiveValidation();
-
-    // Pre-fill email if from URL?
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('email')) {
-        DOM.email.value = params.get('email');
-    }
-
-    DOM.username.focus();
-
-    CE.initAll({
-        page: 'signup',
-        onNav: () => {},
+        // Surface field-specific duplicate errors
+        const lmsg = msg.toLowerCase();
+        if (lmsg.includes('username')) CE.validateField(usernameField, false, msg);
+        else if (lmsg.includes('email')) CE.validateField(emailField, false, msg);
+      } finally {
+        CE.setButtonLoading(submitBtn, false);
+      }
     });
-}
+  }
 
-// Start
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-} else {
-    init();
-}
+  function updateStrength(value, bar) {
+    let score = 0;
+    if (value.length >= 8)          score++;
+    if (/[A-Z]/.test(value))        score++;
+    if (/[0-9]/.test(value))        score++;
+    if (/[^A-Za-z0-9]/.test(value)) score++;
+    const pcts   = [0, 28, 55, 80, 100];
+    const colors = ['#fb7185', '#fb7185', '#fbbf68', '#5eead4', '#2dd4bf'];
+    bar.style.width      = pcts[score] + '%';
+    bar.style.background = colors[score];
+  }
+
+  function isValidUsername(v) {
+    return v.length >= 3 && /^[a-zA-Z0-9_]+$/.test(v);
+  }
+
+  function isEmail(v) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
+  }
+
+  return { init };
+})();
+
+CE.initAll({ topbar: {}, onReady: SignupPage.init });
