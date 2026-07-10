@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Search Campus Energy — CampusWatt</title>
+    <link rel="stylesheet" href="shared/styles.css" />
+    <style>
+      .search-container {
+        padding: 60px 0 80px;
+        max-width: 800px;
+        margin: 0 auto;
+      }
+
+      .search-header {
+        text-align: center;
+        margin-bottom: 40px;
+      }
+      .search-header h1 {
+        font-size: clamp(2rem, 3.5vw, 2.8rem);
+        line-height: 1.1;
+        margin: 12px 0;
+        letter-spacing: -0.02em;
+        font-weight: 800;
+      }
+
+      /* Upgraded Search Box with Glassmorphism */
+      .search-box-wrapper {
+        position: relative;
+        margin: 32px 0 48px; /* Adjusted bottom margin since suggestions are gone */
+      }
+      .search-box {
+        width: 100%;
+        padding: 16px 20px 16px 52px;
+        font-size: 1.1rem;
+        color: var(--text, #ffffff);
+        background: rgba(29, 34, 64, 0.45);
+        backdrop-filter: blur(20px) saturate(140%);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: var(--radius-md, 12px);
+        box-shadow:
+          0 20px 40px -15px rgba(17, 20, 42, 0.7),
+          inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+        transition: all var(--t-med, 0.3s) var(--ease, ease);
+        box-sizing: border-box;
+      }
+      .search-box:focus {
+        outline: none;
+        border-color: rgba(94, 234, 212, 0.4);
+        background: rgba(29, 34, 64, 0.65);
+        box-shadow:
+          0 20px 40px -15px rgba(17, 20, 42, 0.9),
+          0 0 20px -5px rgba(94, 234, 212, 0.2);
+      }
+      .search-box::placeholder {
+        color: var(--text-faint, rgba(255, 255, 255, 0.4));
+      }
+
+      .search-icon-lens {
+        position: absolute;
+        left: 20px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-dim, rgba(255, 255, 255, 0.6));
+        pointer-events: none;
+        transition: color var(--t-med, 0.3s) var(--ease, ease);
+      }
+      .search-box:focus + .search-icon-lens {
+        color: var(--mint, #5eead4);
+      }
+
+      /* Container structure for results area */
+      .results-heading {
+        font-size: 0.78rem;
+        color: var(--text-dim);
+        font-family: var(--f-mono, monospace);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-bottom: 20px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        padding-bottom: 10px;
+      }
+      .search-results {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      @media (max-width: 600px) {
+        .search-container {
+          padding-top: 32px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a href="#main" class="skip-link">Skip to content</a>
+    <div id="site-topbar"></div>
+
+    <main id="main" class="page-enter">
+      <div class="shell search-container">
+        <div class="search-header">
+          <span class="eyebrow">Explore Campus Meters</span>
+          <h1>Find real-time energy usage data</h1>
+        </div>
+
+        <div class="search-box-wrapper">
+          <input
+            type="text"
+            id="search-input"
+            class="search-box"
+            placeholder="Search a Post"
+            autofocus
+          />
+          <svg
+            class="search-icon-lens"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+        </div>
+
+        <div class="results-section">
+          <div class="results-heading">Search Results</div>
+
+          <div id="search-results-target" class="search-results"></div>
+        </div>
+      </div>
+    </main>
+
+    <div id="site-footer"></div>
+
+    <script src="shared/api.js"></script>
+    <script src="shared/app.js"></script>
+    <script>
+      CE.initAll({ topbar: { active: "search" } });
+    </script>
+  </body>
+</html>
