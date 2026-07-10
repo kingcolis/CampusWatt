@@ -1,106 +1,107 @@
-// login.js
+// shared/login.js
 
 const LoginPage = (() => {
 
-  function init() {
+    function init() {
 
-    // Already logged in
-    if (CampusEnergyAPI.readSession()) {
-      window.location.replace("profile.html");
-      return;
+        // Already logged in
+        if (CampusEnergyAPI.readSession()) {
+            window.location.href = "profile.html";
+            return;
+        }
+
+        const form = document.getElementById("loginForm");
+
+        const submitBtn = document.getElementById("submitBtn");
+
+        const usernameInput = document.getElementById("username");
+        const passwordInput = document.getElementById("password");
+
+        const usernameField = document.getElementById("usernameField");
+        const passwordField = document.getElementById("passwordField");
+
+        form.addEventListener("submit", async (e) => {
+
+            e.preventDefault();
+
+            const username = usernameInput.value.trim();
+            const password = passwordInput.value;
+
+            const usernameOk = username.length > 0;
+            const passwordOk = password.length > 0;
+
+            CE.validateField(
+                usernameField,
+                usernameOk,
+                "Username is required."
+            );
+
+            CE.validateField(
+                passwordField,
+                passwordOk,
+                "Password is required."
+            );
+
+            if (!usernameOk || !passwordOk) {
+                return;
+            }
+
+            CE.setButtonLoading(
+                submitBtn,
+                true
+            );
+
+            try {
+
+                await CampusEnergyAPI.login(
+                    username,
+                    password
+                );
+
+                CE.toast(
+                    "Login successful!",
+                    "success"
+                );
+
+                setTimeout(() => {
+
+                    window.location.href =
+                        "profile.html";
+
+                }, 500);
+
+            }
+
+            catch (err) {
+
+                CE.toast(
+                    err.message || "Invalid username or password.",
+                    "error"
+                );
+
+            }
+
+            finally {
+
+                CE.setButtonLoading(
+                    submitBtn,
+                    false
+                );
+
+            }
+
+        });
+
     }
 
-    const form = document.getElementById("loginForm");
-
-    const submitBtn = document.getElementById("submitBtn");
-
-    const usernameField = document.getElementById("usernameField");
-    const passwordField = document.getElementById("passwordField");
-
-    const usernameInput = document.getElementById("username");
-    const passwordInput = document.getElementById("password");
-
-    usernameInput.addEventListener("blur", () => {
-      CE.validateField(
-        usernameField,
-        usernameInput.value.trim().length > 0,
-        "Username is required."
-      );
-    });
-
-    passwordInput.addEventListener("blur", () => {
-      CE.validateField(
-        passwordField,
-        passwordInput.value.length > 0,
-        "Password is required."
-      );
-    });
-
-    form.addEventListener("submit", async (e) => {
-
-      e.preventDefault();
-
-      const username = usernameInput.value.trim();
-      const password = passwordInput.value;
-
-      const usernameOk = username.length > 0;
-      const passwordOk = password.length > 0;
-
-      CE.validateField(
-        usernameField,
-        usernameOk,
-        "Username is required."
-      );
-
-      CE.validateField(
-        passwordField,
-        passwordOk,
-        "Password is required."
-      );
-
-      if (!usernameOk || !passwordOk) return;
-
-      CE.setButtonLoading(submitBtn, true);
-
-      try {
-
-        await CampusEnergyAPI.login(username, password);
-
-        CE.toast("Signed in successfully!", "success", 1500);
-
-        const redirect =
-          new URLSearchParams(location.search).get("next") ||
-          "profile.html";
-
-        setTimeout(() => {
-          window.location.href = redirect;
-        }, 500);
-
-      } catch (err) {
-
-        CE.toast(err.message || "Invalid username or password.", "error");
-
-        CE.validateField(usernameField, false, " ");
-        CE.validateField(passwordField, false, "Invalid username or password.");
-
-        passwordInput.value = "";
-        passwordInput.focus();
-
-      } finally {
-
-        CE.setButtonLoading(submitBtn, false);
-
-      }
-
-    });
-
-  }
-
-  return { init };
+    return {
+        init
+    };
 
 })();
 
 CE.initAll({
-  topbar: {},
-  onReady: LoginPage.init
+
+    onReady: LoginPage.init
+
 });
