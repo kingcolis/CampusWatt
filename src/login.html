@@ -58,84 +58,28 @@
 
 <div class="auth-wrap">
 
-<form
-    class="panel auth-card reveal is-visible"
-    id="loginForm"
-    novalidate
->
-
-<h1>SIGN IN</h1>
+<form id="loginForm">
 
 <div class="field" id="usernameField">
-
-<label for="username">
-Username
-</label>
-
-<div class="field-wrap">
-
-<input
-type="text"
-id="username"
-name="username"
-placeholder="Username"
-autocomplete="username"
-required>
-
-</div>
-
-<p class="field-error">
-Username is required.
-</p>
-
+    <input
+        id="username"
+        type="text"
+        placeholder="Username"
+    >
+    <p class="field-error"></p>
 </div>
 
 <div class="field" id="passwordField">
-
-<label for="password">
-Password
-</label>
-
-<div class="field-wrap">
-
-<input
-type="password"
-id="password"
-name="password"
-placeholder="••••••••"
-autocomplete="current-password"
-required>
-
+    <input
+        id="password"
+        type="password"
+    >
+    <p class="field-error"></p>
 </div>
 
-<p class="field-error">
-Password is required.
-</p>
-
-</div>
-
-<button
-type="submit"
-class="btn btn-primary btn-block"
-id="submitBtn">
-
-<span class="btn-label">
-Sign In
-</span>
-
-<span
-class="spinner"
-aria-hidden="true">
-</span>
-
+<button id="submitBtn">
+    Login
 </button>
-
-<p class="auth-foot">
-Don't have an account?
-<a href="signup.html">
-Sign up
-</a>
-</p>
 
 </form>
 

@@ -1,110 +1,148 @@
-// signup.js
-
+// shared/signup.js
+console.log("NEW SIGNUP.JS LOADED");
+alert("NEW SIGNUP.JS");
 const SignupPage = (() => {
 
-  function init() {
-    // Already logged in → go home
-    const session = CampusEnergyAPI.readSession();
-    if (session) {
-      window.location.replace('profile.html');
-      return;
+    function init() {
+
+        if (CampusEnergyAPI.readSession()) {
+            window.location.replace("profile.html");
+            return;
+        }
+
+        const form = document.getElementById("signupForm");
+        const submitBtn = document.getElementById("submitBtn");
+
+        const usernameField = document.getElementById("usernameField");
+        const emailField = document.getElementById("emailField");
+        const passwordField = document.getElementById("passwordField");
+        const confirmField = document.getElementById("confirmField");
+
+        const usernameInput = document.getElementById("username");
+        const emailInput = document.getElementById("email");
+        const passwordInput = document.getElementById("password");
+        const confirmInput = document.getElementById("confirmPassword");
+
+        form.addEventListener("submit", async (e) => {
+
+            e.preventDefault();
+
+            const username = usernameInput.value.trim();
+            const email = emailInput.value.trim();
+            const password = passwordInput.value;
+            const confirm = confirmInput.value;
+
+            const usernameOk = username.length >= 3;
+            const emailOk = isEmail(email);
+            const passwordOk = password.length >= 8;
+            const confirmOk = password === confirm;
+
+            CE.validateField(
+                usernameField,
+                usernameOk,
+                "Username must be at least 3 characters."
+            );
+
+            CE.validateField(
+                emailField,
+                emailOk,
+                "Enter a valid email address."
+            );
+
+            CE.validateField(
+                passwordField,
+                passwordOk,
+                "Password must be at least 8 characters."
+            );
+
+            CE.validateField(
+                confirmField,
+                confirmOk,
+                "Passwords do not match."
+            );
+
+            if (
+                !usernameOk ||
+                !emailOk ||
+                !passwordOk ||
+                !confirmOk
+            ) {
+                return;
+            }
+
+            CE.setButtonLoading(submitBtn, true);
+
+            try {
+
+                await CampusEnergyAPI.createUser(
+                    username,
+                    email,
+                    password
+                );
+
+                CE.toast(
+                    "Account created successfully!",
+                    "success"
+                );
+
+                setTimeout(() => {
+
+                    window.location.href = "login.html";
+
+                }, 1200);
+
+            }
+
+            catch (err) {
+
+                CE.toast(
+                    err.message || "Could not create account.",
+                    "error"
+                );
+
+            }
+
+            finally {
+
+                CE.setButtonLoading(
+                    submitBtn,
+                    false
+                );
+
+            }
+
+        });
+
     }
 
-    const form          = document.getElementById('signupForm');
-    const submitBtn     = document.getElementById('submitBtn');
-    const usernameField = document.getElementById('usernameField');
-    const emailField    = document.getElementById('emailField');
-    const passField     = document.getElementById('passwordField');
-    const confirmField  = document.getElementById('confirmField');
-    const usernameInput = document.getElementById('username');
-    const emailInput    = document.getElementById('email');
-    const passInput     = document.getElementById('password');
-    const confirmInput  = document.getElementById('confirm');
-    const strengthBar   = document.getElementById('strengthBar');
+    function isEmail(email) {
 
-    // Live validations
-    usernameInput.addEventListener('input', () => {
-      const v = usernameInput.value.trim();
-      if (v.length > 0) CE.validateField(usernameField, isValidUsername(v), 'Pick a username (3+ chars, letters/numbers/underscores).');
-    });
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-    emailInput.addEventListener('blur', () => {
-      const v = emailInput.value.trim();
-      if (v.length > 0) CE.validateField(emailField, isEmail(v), 'Enter a valid email address.');
-    });
+    }
 
-    passInput.addEventListener('input', () => {
-      updateStrength(passInput.value, strengthBar);
-      if (confirmInput.value.length > 0) CE.validateField(confirmField, confirmInput.value === passInput.value, 'Passwords do not match.');
-    });
+    return {
+        init
+    };
 
-    confirmInput.addEventListener('input', () => {
-      if (confirmInput.value.length > 0) CE.validateField(confirmField, confirmInput.value === passInput.value, 'Passwords do not match.');
-    });
-
-    passInput.addEventListener('blur', () => {
-      if (passInput.value.length > 0) CE.validateField(passField, passInput.value.length >= 8, 'Use at least 8 characters.');
-    });
-
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      const username = usernameInput.value.trim();
-      const email    = emailInput.value.trim();
-      const password = passInput.value;
-      const confirm  = confirmInput.value;
-
-      const usernameOk = isValidUsername(username);
-      const emailOk    = isEmail(email);
-      const passwordOk = password.length >= 8;
-      const confirmOk  = confirm.length > 0 && confirm === password;
-
-      CE.validateField(usernameField, usernameOk, 'Pick a username (3+ chars, letters/numbers/underscores).');
-      CE.validateField(emailField, emailOk, 'Enter a valid email address.');
-      CE.validateField(passField, passwordOk, 'Use at least 8 characters.');
-      CE.validateField(confirmField, confirmOk, 'Passwords do not match.');
-
-      if (!usernameOk || !emailOk || !passwordOk || !confirmOk) return;
-
-      CE.setButtonLoading(submitBtn, true);
-      try {
-        await CampusEnergyAPI.signup({ username, email, password, confirmPassword: confirm });
-        CE.toast(`Welcome to CampusEnergy, ${username}!`, 'success', 1800);
-        setTimeout(() => (window.location.href = 'profile.html'), 700);
-      } catch (err) {
-        const msg = err.message || 'Could not create account.';
-        CE.toast(msg, 'error');
-        // Surface field-specific duplicate errors
-        const lmsg = msg.toLowerCase();
-        if (lmsg.includes('username')) CE.validateField(usernameField, false, msg);
-        else if (lmsg.includes('email')) CE.validateField(emailField, false, msg);
-      } finally {
-        CE.setButtonLoading(submitBtn, false);
-      }
-    });
-  }
-
-  function updateStrength(value, bar) {
-    let score = 0;
-    if (value.length >= 8)          score++;
-    if (/[A-Z]/.test(value))        score++;
-    if (/[0-9]/.test(value))        score++;
-    if (/[^A-Za-z0-9]/.test(value)) score++;
-    const pcts   = [0, 28, 55, 80, 100];
-    const colors = ['#fb7185', '#fb7185', '#fbbf68', '#5eead4', '#2dd4bf'];
-    bar.style.width      = pcts[score] + '%';
-    bar.style.background = colors[score];
-  }
-
-  function isValidUsername(v) {
-    return v.length >= 3 && /^[a-zA-Z0-9_]+$/.test(v);
-  }
-
-  function isEmail(v) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
-  }
-
-  return { init };
 })();
 
-CE.initAll({ topbar: {}, onReady: SignupPage.init });
+console.log({
+    form,
+    submitBtn,
+    usernameField,
+    emailField,
+    passwordField,
+    confirmField,
+    usernameInput,
+    emailInput,
+    passwordInput,
+    confirmInput
+});
+CE.initAll({
+
+    topbar: {},
+
+    onReady: SignupPage.init
+
+});

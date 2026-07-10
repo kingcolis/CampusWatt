@@ -29,14 +29,91 @@
       <a href="profile.html"><div class="side-link" data-tab="profile">Profile</div></a>
       <div class="side-link active" data-tab="posts">Posts</div>
     </aside>
+    <div class="panel composer reveal is-visible">
 
+    <h2>Create a Post</h2>
+
+    <input
+        id="postTitle"
+        type="text"
+        placeholder="Title">
+
+    <textarea
+        id="postBody"
+        rows="5"
+        placeholder="Share your findings..."></textarea>
+
+    <select id="postVisibility">
+
+        <option value="public">
+            Public
+        </option>
+
+        <option value="friends">
+            Friends
+        </option>
+
+        <option value="private">
+            Private
+        </option>
+
+    </select>
+
+    <button
+        class="btn btn-primary"
+        id="publishPost">
+
+        Publish
+
+    </button>
+
+</div>
+
+<div class="panel search-panel reveal">
+
+    <input
+        id="searchPosts"
+        type="text"
+        placeholder="Search posts...">
+
+</div>
     <section>
-      <div id="postsList">
-        <div class="panel skel post-skel"></div>
-        <div class="panel skel post-skel"></div>
-        <div class="panel skel post-skel"></div>
-      </div>
-    </section>
+
+<div
+style="
+display:flex;
+justify-content:space-between;
+margin-bottom:20px;
+gap:15px;
+">
+
+<input
+
+id="searchInput"
+
+class="input"
+
+placeholder="Search posts..."
+
+style="flex:1;">
+
+<button
+
+id="createPostBtn"
+
+class="btn btn-primary">
+
+New Post
+
+</button>
+
+</div>
+
+<div id="postsList">
+
+</div>
+
+</section>
   </div>
 </main>
 
@@ -63,5 +140,8 @@
     list.querySelectorAll('.reveal').forEach(el => el.classList.add('is-visible'));
   }
 </script>
+<script src="shared/api.js"></script>
+<script src="shared/app.js"></script>
+<script src="shared/posts.js"></script>
 </body>
 </html>

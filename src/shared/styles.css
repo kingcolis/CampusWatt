@@ -1,6 +1,4 @@
-/* =========================================================
-   CampusEnergy — Design System
-   ========================================================= */
+
 
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
@@ -291,4 +289,30 @@ button{ font-family: inherit; }
   .nav-links{ order:3; width:100%; justify-content:center; gap:24px; }
   .shell{ padding: 0 20px; }
   .footer-top, .footer-bottom{ padding-left:20px; padding-right:20px; }
+}
+
+
+.composer{
+    padding:24px;
+    margin-bottom:24px;
+}
+
+.composer h2{
+    margin-bottom:18px;
+}
+
+.composer input,
+.composer textarea,
+.composer select{
+
+    width:100%;
+    margin-bottom:16px;
+
+}
+
+.search-panel{
+
+    padding:18px;
+    margin-bottom:24px;
+
 }
