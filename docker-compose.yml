@@ -1,0 +1,58 @@
+version: "3.9"
+
+services:
+
+  backend:
+
+    build: ./backend
+
+    container_name: campuswatt_backend
+
+    ports:
+
+      - "8001:8001"
+
+    env_file:
+
+      - .env
+
+    restart: unless-stopped
+
+  frontend:
+
+    build: ./frontend
+
+    container_name: campuswatt_frontend
+
+    ports:
+
+      - "80:80"
+
+    depends_on:
+
+      - backend
+
+    restart: unless-stopped
+db:
+
+  image: postgres:16
+
+  container_name: campuswatt_db
+
+  restart: unless-stopped
+
+  environment:
+
+    POSTGRES_DB: campuswatt
+
+    POSTGRES_USER: postgres
+
+    POSTGRES_PASSWORD: jorge69
+
+  volumes:
+
+    - postgres_data:/var/lib/postgresql/data
+
+volumes:
+
+    postgres_data:

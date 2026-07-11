@@ -105,7 +105,7 @@ async def predict(request: PredictionRequest, user=Depends(verify_token)):
     df = pd.DataFrame([request.model_dump()])
     #df["timestamp"] = pd.to_datetime(df["timestamp"]) // not required due to the datetime being the index of the data
 
-    df = feature_engineer_engineer(df)
+    df = feature_engineer_energy(df)
 
     # Prediction
     y_pred = model.predict(df)

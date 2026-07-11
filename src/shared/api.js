@@ -1,7 +1,7 @@
 const CampusEnergyAPI = (() => {
 
   const CONFIG = {
-    BASE_URL: window.__CE_API_BASE__ || "http://127.0.0.1:8001",
+    BASE_URL: window.__CE_API_BASE__ || "/api",
     USE_MOCKS: false,
     TIMEOUT_MS: 12000,
   };
