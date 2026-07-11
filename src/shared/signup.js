@@ -3,12 +3,6 @@
 const SignupPage = (() => {
 
   function init() {
-    // Already logged in → go home
-    const session = CampusEnergyAPI.readSession();
-    if (session) {
-      window.location.replace('profile.html');
-      return;
-    }
 
     const form          = document.getElementById('signupForm');
     const submitBtn     = document.getElementById('submitBtn');

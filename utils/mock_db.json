@@ -1,0 +1,11 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "username": "king",
+      "email": "king@campuswatt.com",
+      "password_hash": "scrypt:32768:8:1$KWmTQyhZWT2tYfr1$baf6fea50a0ded4a0dcbe7a6dba19f625afdc5c923d48393ed106f8d3fcdb81c69186078da25adf1e05de7908fc488d1fe05142514ce3d9ef419b47736da99bc"
+    }
+  ],
+  "posts": []
+}
