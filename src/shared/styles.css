@@ -354,3 +354,63 @@ button{ font-family: inherit; }
 .field.valid .field-wrap:has(.password-toggle)::after {
   right: 60px;
 }
+
+/* -------SMOOTH BUTTON & INTERACTION ADDITIONS---------- */
+
+/* Universal smooth transitions for all buttons and interactive elements */
+.btn, 
+.hero-actions a,
+.cta-band a,
+button {
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  will-change: transform, box-shadow;
+  transform: translateZ(0); /* Forces GPU acceleration to prevent jitter */
+}
+
+/* Light lift effect on hover */
+.btn:hover, 
+.hero-actions a:hover,
+.cta-band a:hover {
+  transform: translateY(-3px) translateZ(0);
+}
+
+/* Highly responsive, clean "press" feedback when clicked */
+.btn:active, 
+.hero-actions a:active,
+.cta-band a:active {
+  transform: translateY(-1px) scale(0.96) translateZ(0) !important;
+  transition: transform 0.08s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+/* Clean lighting overlay*/
+.btn-primary {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #ffffff;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.btn-primary:hover::after {
+  opacity: 0.12; /*clean glow on top */
+}
+
+/* Ultra-clean focus ring that won't distort layout shapes */
+.btn:focus-visible, 
+button:focus-visible,
+a:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(94, 234, 212, 0.4) !important;
+}
+
