@@ -6,6 +6,7 @@
 <title>Sign In — CampusEnergy</title>
 
 <link rel="stylesheet" href="shared/styles.css">
+<link rel="icon" type="image/png" href="shared/favicon.png">
 
 <style>
 .auth-wrap{
@@ -58,9 +59,14 @@
 
 <div class="auth-wrap">
 
+<div class="panel auth-card reveal is-visible">
+
+<h1>Sign In</h1>
+
 <form id="loginForm">
 
 <div class="field" id="usernameField">
+    <label for="username">Username</label>
     <input
         id="username"
         type="text"
@@ -70,18 +76,32 @@
 </div>
 
 <div class="field" id="passwordField">
-    <input
-        id="password"
-        type="password"
-    >
+    <label for="password">Password</label>
+    <div class="field-wrap">
+        <input
+            type="password"
+            id="password"
+            name="password"
+            placeholder="••••••••"
+            autocomplete="current-password"
+            required
+        >
+        <button type="button" class="password-toggle" aria-label="Show password">Show</button>
+    </div>
     <p class="field-error"></p>
 </div>
 
-<button id="submitBtn">
+<button id="submitBtn" class="btn btn-primary btn-block" type="submit">
     Login
 </button>
 
 </form>
+
+<div class="auth-foot">
+    Don't have an account? <a href="signup.html">Sign up</a>
+</div>
+
+</div>
 
 </div>
 

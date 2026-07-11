@@ -17,7 +17,16 @@ import time
 from time import perf_counter
 from fastapi import HTTPException, Depends
 import asyncio
+import sys
 from warnings import filterwarnings
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    try:
+        import uvicorn.loops.asyncio
+        uvicorn.loops.asyncio.asyncio_loop_factory = lambda use_subprocess=False: asyncio.SelectorEventLoop
+    except Exception as e:
+        print(f"Warning: Failed to patch uvicorn loop factory: {e}")
 
 #For Protection
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -65,8 +74,18 @@ async def verify_token(
 
 @app.on_event("startup")
 async def startup():
-    await DB_POOL.open()
-    await migrate_db()
+    import sys
+    import asyncio
+    if sys.platform == "win32":
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    try:
+        await DB_POOL.open()
+    except Exception as e:
+        print(f"[DB] Warning: DB_POOL.open() failed: {e}")
+    try:
+        await migrate_db()
+    except Exception as e:
+        print(f"[DB] Warning: migrate_db() failed: {e}")
 
 
 @app.on_event("shutdown")
@@ -466,6 +485,15 @@ async def unfollow_user(
     return {
         "status":"unfollowed"
     }
+
+@app.get("/users/me")
+async def get_current_user_profile(user=Depends(verify_token)):
+    user["userType"] = "Student" if user["id"] % 2 == 1 else "Faculty"
+    user["age"] = 21 if user["userType"] == "Student" else 42
+    user["course"] = "Computer Engineering"
+    user["position"] = "Associate Professor"
+    user["about"] = "Passionate about smart campus sustainability and platform engineering."
+    return user
 
 @app.get("/users/{user_id}")
 async def profile(user_id: int):

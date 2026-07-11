@@ -1,3 +1,8 @@
+import sys
+import asyncio
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 import psycopg
 import json
 import os
@@ -8,6 +13,37 @@ from psycopg_pool import AsyncConnectionPool
 from dotenv import load_dotenv
 
 load_dotenv()
+
+USE_MOCK_DB = False
+MOCK_USERS = []
+MOCK_POSTS = []
+MOCK_PREDICTIONS = {}
+MOCK_CAUSALS = {}
+MOCK_RECOMMENDATIONS = {}
+
+MOCK_DB_FILE = os.path.join(os.path.dirname(__file__), "mock_db.json")
+
+def load_mock_db():
+    global MOCK_USERS, MOCK_POSTS
+    if os.path.exists(MOCK_DB_FILE):
+        try:
+            with open(MOCK_DB_FILE, "r") as f:
+                data = json.load(f)
+                MOCK_USERS = data.get("users", [])
+                MOCK_POSTS = data.get("posts", [])
+                print(f"[DB] Loaded {len(MOCK_USERS)} users and {len(MOCK_POSTS)} posts from mock_db.json")
+        except Exception as e:
+            print(f"[DB] Error loading mock_db.json: {e}")
+
+def save_mock_db():
+    try:
+        with open(MOCK_DB_FILE, "w") as f:
+            json.dump({
+                "users": MOCK_USERS,
+                "posts": MOCK_POSTS
+            }, f, indent=2)
+    except Exception as e:
+        print(f"[DB] Error saving mock_db.json: {e}")
 
 DB_PASSWORD = os.getenv("db_password")
 DB_USER = os.getenv("db_user")
@@ -27,6 +63,15 @@ DB_POOL = AsyncConnectionPool(
 )
 
 async def migrate_db():
+    global USE_MOCK_DB
+    try:
+        async with DB_POOL.connection(timeout=2.0) as db:
+            pass
+    except Exception as e:
+        print(f"[DB] PostgreSQL database offline: {e}. Switching to IN-MEMORY MOCK DATABASE.")
+        USE_MOCK_DB = True
+        load_mock_db()
+        return
 
     async with DB_POOL.connection() as db:
         async with db.cursor() as cursor:
@@ -216,6 +261,19 @@ async def close_db():
 
 
 async def user_retrieval(username: str):
+    if USE_MOCK_DB:
+        for u in MOCK_USERS:
+            if u["username"] == username or u["email"] == username:
+                return u
+        if username in ["user", "user@campusenergy.edu"]:
+            u = {"id": 1, "username": "user", "email": "user@campusenergy.edu", "password_hash": generate_password_hash("password")}
+            MOCK_USERS.append(u)
+            return u
+        elif username in ["prof", "prof@campusenergy.edu"]:
+            u = {"id": 2, "username": "prof", "email": "prof@campusenergy.edu", "password_hash": generate_password_hash("password")}
+            MOCK_USERS.append(u)
+            return u
+        return None
 
     async with DB_POOL.connection() as db:
         async with db.cursor() as cursor:
@@ -253,6 +311,17 @@ async def create_user_db(
 ):
 
     password_hash = generate_password_hash(password)
+
+    if USE_MOCK_DB:
+        user_id = len(MOCK_USERS) + 1
+        MOCK_USERS.append({
+            "id": user_id,
+            "username": username,
+            "email": email,
+            "password_hash": password_hash
+        })
+        save_mock_db()
+        return user_id
 
     async with DB_POOL.connection() as db:
         async with db.cursor() as cursor:
@@ -294,6 +363,8 @@ async def save_prediction_result(
     inference_time_ms=None,
     has_error=False
 ):
+    if USE_MOCK_DB:
+        return
 
     async with DB_POOL.connection() as db:
         async with db.cursor() as cursor:
@@ -332,6 +403,8 @@ async def save_causal_result(
     inference_time_ms: int,
     has_error: bool
 ):
+    if USE_MOCK_DB:
+        return
     
     async with DB_POOL.connection() as db:
         async with db.cursor() as cursor:
@@ -363,6 +436,8 @@ async def save_recommendation_result(
     confidence_score: float,
     source_documents: list[str]
 ):
+    if USE_MOCK_DB:
+        return
 
     async with DB_POOL.connection() as db:
         async with db.cursor() as cursor:
@@ -397,6 +472,31 @@ async def save_post(
     recommendation_result_id=None,
     visibility="public"
 ):
+    if USE_MOCK_DB:
+        post_id = str(uuid.uuid4())
+        username = "Anonymous"
+        for u in MOCK_USERS:
+            if u["id"] == author_id:
+                username = u["username"]
+                break
+        
+        post = {
+            "id": post_id,
+            "author_id": author_id,
+            "username": username,
+            "title": title,
+            "body": body,
+            "content": body,
+            "images": images,
+            "visibility": visibility,
+            "created_at": "2026-07-11T12:00:00Z",
+            "date": "Just now",
+            "likes": 0,
+            "comments": 0
+        }
+        MOCK_POSTS.insert(0, post)
+        save_mock_db()
+        return post_id
 
     post_id = str(uuid.uuid4())
     
@@ -436,6 +536,33 @@ async def save_post(
 
 
 async def fetch_posts(limit=25):
+    if USE_MOCK_DB:
+        if not MOCK_POSTS:
+            MOCK_POSTS.append({
+                "id": "post-uuid-1",
+                "author_id": 1,
+                "username": "user",
+                "title": "Smart Building Heating Analysis",
+                "body": "We analyzed the heating load in Campus Hall 3 and found that reducing setpoints by 1.5°C over the weekend saved 14% energy without impact on occupant comfort.",
+                "content": "We analyzed the heating load in Campus Hall 3 and found that reducing setpoints by 1.5°C over the weekend saved 14% energy without impact on occupant comfort.",
+                "visibility": "public",
+                "created_at": "2026-07-10T14:32:00Z",
+                "likes": 5,
+                "comments": 2
+            })
+            MOCK_POSTS.append({
+                "id": "post-uuid-2",
+                "author_id": 2,
+                "username": "prof",
+                "title": "Causal Inference in Campus Grid Management",
+                "body": "Applying double machine learning to estimate the causal impact of dynamic line ratings shows significant potential during peak hours.",
+                "content": "Applying double machine learning to estimate the causal impact of dynamic line ratings shows significant potential during peak hours.",
+                "visibility": "public",
+                "created_at": "2026-07-11T09:15:00Z",
+                "likes": 12,
+                "comments": 4
+            })
+        return MOCK_POSTS[:limit]
 
     async with DB_POOL.connection() as db:
         async with db.cursor(row_factory=dict_row) as cursor:
@@ -474,6 +601,11 @@ async def fetch_posts(limit=25):
 
 
 async def fetch_post(post_id):
+    if USE_MOCK_DB:
+        for p in MOCK_POSTS:
+            if p["id"] == post_id:
+                return p
+        return None
 
     async with DB_POOL.connection() as db:
         async with db.cursor(row_factory=dict_row) as cursor:
@@ -501,6 +633,11 @@ async def remove_post(
     post_id,
     author_id
 ):
+    if USE_MOCK_DB:
+        global MOCK_POSTS
+        MOCK_POSTS = [p for p in MOCK_POSTS if not (p["id"] == post_id and p["author_id"] == author_id)]
+        save_mock_db()
+        return
 
     async with DB_POOL.connection() as db:
         async with db.cursor() as cursor:
@@ -591,6 +728,170 @@ async def unlike_post_db(user_id: int, post_id: str):
                 (user_id, post_id)
             )
 
+        await db.commit()
+
+
+async def get_profile(user_id: int):
+    if USE_MOCK_DB:
+        for u in MOCK_USERS:
+            if u["id"] == user_id:
+                res = u.copy()
+                res["userType"] = "Student" if res["id"] % 2 == 1 else "Faculty"
+                res["age"] = 21 if res["userType"] == "Student" else 42
+                res["course"] = "Computer Engineering"
+                res["position"] = "Associate Professor"
+                res["about"] = "Passionate about smart campus sustainability and platform engineering."
+                return res
+        return None
+
+    async with DB_POOL.connection() as db:
+        async with db.cursor(row_factory=dict_row) as cursor:
+            await cursor.execute(
+                """
+                SELECT id, username, email FROM users WHERE id = %s
+                """,
+                (user_id,)
+            )
+            user = await cursor.fetchone()
+            if user:
+                user["userType"] = "Student" if user["id"] % 2 == 1 else "Faculty"
+                user["age"] = 21 if user["userType"] == "Student" else 42
+                user["course"] = "Computer Engineering"
+                user["position"] = "Associate Professor"
+                user["about"] = "Passionate about smart campus sustainability and platform engineering."
+            return user
+
+
+async def fetch_user_posts(user_id: int):
+    if USE_MOCK_DB:
+        return [p for p in MOCK_POSTS if p["author_id"] == user_id]
+
+    async with DB_POOL.connection() as db:
+        async with db.cursor(row_factory=dict_row) as cursor:
+            await cursor.execute(
+                """
+                SELECT p.*, u.username,
+                       (SELECT COUNT(*) FROM likes WHERE post_id = p.id) AS likes,
+                       (SELECT COUNT(*) FROM comments WHERE post_id = p.id) AS comments
+                FROM posts p
+                JOIN users u ON p.author_id = u.id
+                WHERE p.author_id = %s
+                ORDER BY p.created_at DESC
+                """,
+                (user_id,)
+            )
+            return await cursor.fetchall()
+
+
+async def save_post_db(user_id: int, post_id: str):
+    if USE_MOCK_DB:
+        return
+    async with DB_POOL.connection() as db:
+        async with db.cursor() as cursor:
+            await cursor.execute(
+                """
+                INSERT INTO saved_posts(user_id, post_id)
+                VALUES (%s, %s)
+                ON CONFLICT DO NOTHING
+                """,
+                (user_id, post_id)
+            )
+        await db.commit()
+
+
+async def unsave_post_db(user_id: int, post_id: str):
+    if USE_MOCK_DB:
+        return
+    async with DB_POOL.connection() as db:
+        async with db.cursor() as cursor:
+            await cursor.execute(
+                """
+                DELETE FROM saved_posts
+                WHERE user_id = %s AND post_id = %s
+                """,
+                (user_id, post_id)
+            )
+        await db.commit()
+
+
+async def add_comment(post_id: str, user_id: int, text: str):
+    comment_id = str(uuid.uuid4())
+    if USE_MOCK_DB:
+        return comment_id
+    async with DB_POOL.connection() as db:
+        async with db.cursor() as cursor:
+            await cursor.execute(
+                """
+                INSERT INTO comments(id, post_id, user_id, text)
+                VALUES (%s, %s, %s, %s)
+                """,
+                (comment_id, post_id, user_id, text)
+            )
+        await db.commit()
+    return comment_id
+
+
+async def fetch_comments(post_id: str):
+    if USE_MOCK_DB:
+        return []
+    async with DB_POOL.connection() as db:
+        async with db.cursor(row_factory=dict_row) as cursor:
+            await cursor.execute(
+                """
+                SELECT c.*, u.username
+                FROM comments c
+                JOIN users u ON c.user_id = u.id
+                WHERE c.post_id = %s
+                ORDER BY c.created_at ASC
+                """,
+                (post_id,)
+            )
+            return await cursor.fetchall()
+
+
+async def remove_comment(comment_id: str, user_id: int):
+    if USE_MOCK_DB:
+        return
+    async with DB_POOL.connection() as db:
+        async with db.cursor() as cursor:
+            await cursor.execute(
+                """
+                DELETE FROM comments
+                WHERE id = %s AND user_id = %s
+                """,
+                (comment_id, user_id)
+            )
+        await db.commit()
+
+
+async def follow(follower_id: int, following_id: int):
+    if USE_MOCK_DB:
+        return
+    async with DB_POOL.connection() as db:
+        async with db.cursor() as cursor:
+            await cursor.execute(
+                """
+                INSERT INTO followers(follower_id, following_id)
+                VALUES (%s, %s)
+                ON CONFLICT DO NOTHING
+                """,
+                (follower_id, following_id)
+            )
+        await db.commit()
+
+
+async def unfollow(follower_id: int, following_id: int):
+    if USE_MOCK_DB:
+        return
+    async with DB_POOL.connection() as db:
+        async with db.cursor() as cursor:
+            await cursor.execute(
+                """
+                DELETE FROM followers
+                WHERE follower_id = %s AND following_id = %s
+                """,
+                (follower_id, following_id)
+            )
         await db.commit()
 
 

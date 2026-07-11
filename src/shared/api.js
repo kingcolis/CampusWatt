@@ -1,395 +1,469 @@
-// shared/api.js
-
 const CampusEnergyAPI = (() => {
 
-    const BASE_URL = "http://127.0.0.1:8001";
+  const CONFIG = {
+    BASE_URL: window.__CE_API_BASE__ || "http://127.0.0.1:8001",
+    USE_MOCKS: false,
+    TIMEOUT_MS: 12000,
+  };
 
-    /* ------------------------- */
+  const ENDPOINTS = {
 
-    async function request(endpoint, options = {}) {
+    /* Authentication */
+    login: () => `${CONFIG.BASE_URL}/login`,
+    createUser: () => `${CONFIG.BASE_URL}/create_user`,
+    health: () => `${CONFIG.BASE_URL}/health`,
 
-        const headers = {
-            "Content-Type": "application/json",
-            ...(options.headers || {})
-        };
+    /* Machine Learning */
+    predict: () => `${CONFIG.BASE_URL}/predict`,
+    causalPredict: () => `${CONFIG.BASE_URL}/causal_predict`,
+    recommend: () => `${CONFIG.BASE_URL}/recommend`,
 
-        const token = localStorage.getItem("access_token");
+    /* Community */
+    posts: () => `${CONFIG.BASE_URL}/posts`,
+    post: (id) => `${CONFIG.BASE_URL}/posts/${id}`,
 
-        if (token) {
-            headers.Authorization = `Bearer ${token}`;
-        }
+    /* Comments */
+    comments: (id) => `${CONFIG.BASE_URL}/posts/${id}/comments`,
+    comment: (id) => `${CONFIG.BASE_URL}/comments/${id}`,
 
-        const response = await fetch(
-            BASE_URL + endpoint,
-            {
-                ...options,
-                headers
-            }
-        );
+    /* Likes */
+    like: (id) => `${CONFIG.BASE_URL}/posts/${id}/like`,
 
-        let data = {};
+    /* Saved Posts */
+    savedPosts: () => `${CONFIG.BASE_URL}/saved`,
+    savePost: (id) => `${CONFIG.BASE_URL}/posts/${id}/save`,
 
-        try {
-            data = await response.json();
-        } catch (_) {}
+    /* Users */
+    currentUser: () => `${CONFIG.BASE_URL}/users/me`,
+    profile: (userId) => `${CONFIG.BASE_URL}/users/${userId}`,
+    userPosts: (userId) => `${CONFIG.BASE_URL}/users/${userId}/posts`,
+    follow: (userId) => `${CONFIG.BASE_URL}/users/${userId}/follow`,
 
-        if (!response.ok) {
+    /* Search */
+    search: (query) =>
+      `${CONFIG.BASE_URL}/search?q=${encodeURIComponent(query)}`
+  };
 
-            throw new Error(
-                data.detail ||
-                data.message ||
-                "Request failed."
-            );
-
-        }
-
-        return data;
+  class APIError extends Error {
+    constructor(message, status, body) {
+      super(message);
+      this.name = "APIError";
+      this.status = status;
+      this.body = body;
     }
+  }
 
-    /* ------------------------- */
-    /* Authentication            */
-    /* ------------------------- */
+  /* ── Session helpers ── */
 
-    async function login(username, password) {
+  function persistSession(session) {
+    sessionStorage.setItem("ce_session", JSON.stringify(session));
+  }
 
-        const data = await request(
-            "/login",
-            {
-                method: "POST",
-                body: JSON.stringify({
-                    username,
-                    password
-                })
-            }
-        );
-
-        localStorage.setItem(
-            "access_token",
-            data.access_token
-        );
-
-        return data;
-
+  function readSession() {
+    try {
+      return JSON.parse(sessionStorage.getItem("ce_session"));
+    } catch {
+      return null;
     }
+  }
 
-    async function createUser(
-        username,
-        email,
-        password
-    ) {
+  function clearSession() {
+    sessionStorage.removeItem("ce_session");
+  }
 
-        return request(
-            "/create_user",
-            {
-                method: "POST",
-                body: JSON.stringify({
-                    username,
-                    email,
-                    password
-                })
-            }
+  function getToken() {
+    return readSession()?.access_token;
+  }
+
+  /* ── Core request helper ── */
+
+  async function request(url, options = {}) {
+
+    const controller = new AbortController();
+
+    const timer = setTimeout(
+      () => controller.abort(),
+      CONFIG.TIMEOUT_MS
+    );
+
+    try {
+
+      const headers = {
+        "Content-Type": "application/json",
+        ...(options.headers || {})
+      };
+
+      const token = getToken();
+
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      const res = await fetch(url, {
+        ...options,
+        headers,
+        signal: controller.signal
+      });
+
+      clearTimeout(timer);
+
+      if (!res.ok) {
+
+        const body = await res.json().catch(() => ({}));
+
+        throw new APIError(
+          body.detail || body.message || `HTTP ${res.status}`,
+          res.status,
+          body
         );
+      }
 
-    }
+      return res.status === 204
+        ? null
+        : await res.json();
 
-    function logout() {
+    } catch (err) {
 
-        localStorage.removeItem(
-            "access_token"
-        );
+      clearTimeout(timer);
 
-    }
-
-    function readSession() {
-
-        return localStorage.getItem(
-            "access_token"
-        );
-
-    }
-
-    /* ------------------------- */
-    /* Users                     */
-    /* ------------------------- */
-
-    async function getCurrentUser() {
-
-        return request(
-            "/users/me"
-        );
-
-    }
-
-    async function getProfile(userId) {
-
-        return request(
-            `/users/${userId}`
-        );
-
-    }
-
-    async function followUser(userId) {
-
-        return request(
-            `/users/${userId}/follow`,
-            {
-                method: "POST"
-            }
-        );
+      throw err instanceof APIError
+        ? err
+        : new APIError(err.message, 0);
 
     }
+  }
 
-    async function unfollowUser(userId) {
+  /* ── Authentication ── */
 
-        return request(
-            `/users/${userId}/follow`,
-            {
-                method: "DELETE"
-            }
-        );
+  async function login(username, password) {
 
+    const session = await request(
+      ENDPOINTS.login(),
+      {
+        method: "POST",
+        body: JSON.stringify({
+          username,
+          password
+        })
+      }
+    );
+
+    persistSession(session);
+
+    return session;
+  }
+
+  async function createUser(username, email, password) {
+
+    return request(
+      ENDPOINTS.createUser(),
+      {
+        method: "POST",
+        body: JSON.stringify({
+          username,
+          email,
+          password
+        })
+      }
+    );
+  }
+
+  async function signup({ username, email, password }) {
+    return createUser(username, email, password);
+  }
+
+  async function logout() {
+
+    clearSession();
+
+    return true;
+  }
+
+  /* ── Machine Learning ── */
+
+  async function predict(data) {
+
+    return request(
+      ENDPOINTS.predict(),
+      {
+        method: "POST",
+        body: JSON.stringify(data)
+      }
+    );
+  }
+
+  async function causalPredict(data) {
+
+    return request(
+      ENDPOINTS.causalPredict(),
+      {
+        method: "POST",
+        body: JSON.stringify(data)
+      }
+    );
+  }
+
+  async function recommend(data) {
+
+    return request(
+      ENDPOINTS.recommend(),
+      {
+        method: "POST",
+        body: JSON.stringify(data)
+      }
+    );
+  }
+
+  /* ── Community / Posts ── */
+
+  async function getPosts() {
+    return request(ENDPOINTS.posts());
+  }
+
+  async function getPost(id) {
+    return request(ENDPOINTS.post(id));
+  }
+
+  async function createPost(data) {
+    return request(
+      ENDPOINTS.posts(),
+      {
+        method: "POST",
+        body: JSON.stringify(data)
+      }
+    );
+  }
+
+  async function updatePost(id, data) {
+    return request(
+      ENDPOINTS.post(id),
+      {
+        method: "PUT",
+        body: JSON.stringify(data)
+      }
+    );
+  }
+
+  async function deletePost(id) {
+    return request(
+      ENDPOINTS.post(id),
+      {
+        method: "DELETE"
+      }
+    );
+  }
+
+  /* ── Comments ── */
+
+  async function getComments(postId) {
+    return request(
+      ENDPOINTS.comments(postId)
+    );
+  }
+
+  async function createComment(postId, text) {
+    return request(
+      ENDPOINTS.comments(postId),
+      {
+        method: "POST",
+        body: JSON.stringify({ text })
+      }
+    );
+  }
+
+  async function deleteComment(commentId) {
+    return request(
+      ENDPOINTS.comment(commentId),
+      {
+        method: "DELETE"
+      }
+    );
+  }
+
+  /* ── Likes ── */
+
+  async function likePost(postId) {
+    return request(
+      ENDPOINTS.like(postId),
+      {
+        method: "POST"
+      }
+    );
+  }
+
+  async function unlikePost(postId) {
+    return request(
+      ENDPOINTS.like(postId),
+      {
+        method: "DELETE"
+      }
+    );
+  }
+
+  async function isLiked(postId) {
+    return false;
+  }
+
+  async function getLikeCount(postId) {
+    try {
+      const post = await getPost(postId);
+      return post.likeCount || 0;
+    } catch {
+      return 0;
     }
+  }
 
-    /* ------------------------- */
-    /* Posts                     */
-    /* ------------------------- */
+  /* ── Saved Posts ── */
 
-    async function getPosts() {
+  async function getSavedPosts() {
+    return request(
+      ENDPOINTS.savedPosts()
+    );
+  }
 
-        return request(
-            "/posts"
-        );
+  async function savePost(postId) {
+    return request(
+      ENDPOINTS.savePost(postId),
+      {
+        method: "POST"
+      }
+    );
+  }
 
+  async function unsavePost(postId) {
+    return request(
+      ENDPOINTS.savePost(postId),
+      {
+        method: "DELETE"
+      }
+    );
+  }
+
+  async function isSaved(postId) {
+    try {
+      const saved = await getSavedPosts();
+      return Array.isArray(saved) && saved.some(p => p.id === postId);
+    } catch {
+      return false;
     }
+  }
 
-    async function getPost(postId) {
+  /* ── Users ── */
 
-        return request(
-            `/posts/${postId}`
-        );
+  async function getCurrentUser() {
+    return request(
+      ENDPOINTS.currentUser()
+    );
+  }
 
-    }
+  async function getProfile(userId) {
+    return request(
+      ENDPOINTS.profile(userId)
+    );
+  }
 
-    async function createPost(
-        title,
-        content
-    ) {
+  async function getUserPosts(userId) {
+    return request(
+      ENDPOINTS.userPosts(userId)
+    );
+  }
 
-        return request(
-            "/posts",
-            {
-                method: "POST",
-                body: JSON.stringify({
-                    title,
-                    content
-                })
-            }
-        );
+  async function followUser(userId) {
+    return request(
+      ENDPOINTS.follow(userId),
+      {
+        method: "POST"
+      }
+    );
+  }
 
-    }
+  async function unfollowUser(userId) {
+    return request(
+      ENDPOINTS.follow(userId),
+      {
+        method: "DELETE"
+      }
+    );
+  }
 
-    async function editPost(
-        id,
-        title,
-        content
-    ) {
+  /* ── Search ── */
 
-        return request(
-            `/posts/${id}`,
-            {
-                method: "PUT",
-                body: JSON.stringify({
-                    title,
-                    content
-                })
-            }
-        );
+  async function search(query) {
+    return request(
+      ENDPOINTS.search(query)
+    );
+  }
 
-    }
+  /* ── Health ── */
 
-    async function deletePost(id) {
+  async function health() {
+    return request(
+      ENDPOINTS.health()
+    );
+  }
 
-        return request(
-            `/posts/${id}`,
-            {
-                method: "DELETE"
-            }
-        );
+  /* ── Public API ── */
 
-    }
+  return {
 
-    async function likePost(id) {
+    config: CONFIG,
+    endpoints: ENDPOINTS,
 
-        return request(
-            `/posts/${id}/like`,
-            {
-                method: "POST"
-            }
-        );
+    /* Authentication */
+    login,
+    createUser,
+    signup,
+    logout,
 
-    }
+    /* Machine Learning */
+    predict,
+    causalPredict,
+    recommend,
 
-    async function unlikePost(id) {
+    /* Community */
+    getPosts,
+    getPost,
+    createPost,
+    updatePost,
+    deletePost,
 
-        return request(
-            `/posts/${id}/like`,
-            {
-                method: "DELETE"
-            }
-        );
+    /* Comments */
+    getComments,
+    createComment,
+    deleteComment,
 
-    }
+    /* Likes */
+    likePost,
+    unlikePost,
+    isLiked,
+    getLikeCount,
 
-    async function savePost(id) {
+    /* Saved */
+    getSavedPosts,
+    getSaved: getSavedPosts,
+    savePost,
+    unsavePost,
+    isSaved,
 
-        return request(
-            `/posts/${id}/save`,
-            {
-                method: "POST"
-            }
-        );
+    /* Users */
+    getCurrentUser,
+    getProfile,
+    getUser: getProfile,
+    getUserPosts,
+    followUser,
+    unfollowUser,
 
-    }
+    /* Search */
+    search,
 
-    async function unsavePost(id) {
+    /* Utilities */
+    health,
+    healthCheck: health,
 
-        return request(
-            `/posts/${id}/save`,
-            {
-                method: "DELETE"
-            }
-        );
+    readSession,
+    clearSession,
 
-    }
-
-    /* ------------------------- */
-    /* Comments                  */
-    /* ------------------------- */
-
-    async function getComments(postId) {
-
-        return request(
-            `/posts/${postId}/comments`
-        );
-
-    }
-
-    async function createComment(
-        postId,
-        content
-    ) {
-
-        return request(
-            `/posts/${postId}/comments`,
-            {
-                method: "POST",
-                body: JSON.stringify({
-                    content
-                })
-            }
-        );
-
-    }
-
-    async function deleteComment(commentId) {
-
-        return request(
-            `/comments/${commentId}`,
-            {
-                method: "DELETE"
-            }
-        );
-
-    }
-
-    /* ------------------------- */
-    /* Machine Learning          */
-    /* ------------------------- */
-
-    async function predict(body) {
-
-        return request(
-            "/predict",
-            {
-                method: "POST",
-                body: JSON.stringify(body)
-            }
-        );
-
-    }
-
-    async function causalPredict(body) {
-
-        return request(
-            "/causal_predict",
-            {
-                method: "POST",
-                body: JSON.stringify(body)
-            }
-        );
-
-    }
-
-    async function recommend(body) {
-
-        return request(
-            "/recommend",
-            {
-                method: "POST",
-                body: JSON.stringify(body)
-            }
-        );
-
-    }
-
-    async function getUserPosts(username){
-        profilePosts:(username)=>`${CONFIG.BASE_URL}/users/${username}/posts`,
-        return request(
-            
-            endpoint.profilePosts(username),
-
-            {
-            method:"GET"
-            }
-        );
-
-    }
-
-
-    return {
-
-        login,
-        logout,
-        readSession,
-
-        createUser,
-
-        getCurrentUser,
-        getProfile,
-
-        followUser,
-        unfollowUser,
-        getUserPosts,
-        getPosts,
-        getPost,
-        createPost,
-        editPost,
-        deletePost,
-
-        likePost,
-        unlikePost,
-
-        savePost,
-        unsavePost,
-
-        getComments,
-        createComment,
-        deleteComment,
-
-        predict,
-        causalPredict,
-        recommend
-
-    };
+    APIError
+  };
 
 })();

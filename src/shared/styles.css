@@ -291,7 +291,6 @@ button{ font-family: inherit; }
   .footer-top, .footer-bottom{ padding-left:20px; padding-right:20px; }
 }
 
-
 .composer{
     padding:24px;
     margin-bottom:24px;
@@ -315,4 +314,43 @@ button{ font-family: inherit; }
     padding:18px;
     margin-bottom:24px;
 
+}
+
+/* ---------- Password Toggle Button ---------- */
+.password-toggle {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--line-strong);
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  transition: all var(--t-fast) var(--ease);
+}
+.password-toggle:hover {
+  color: var(--text);
+  background: rgba(255,255,255,0.12);
+  border-color: var(--text-faint);
+}
+.password-toggle:focus-visible {
+  outline: 2px solid var(--mint);
+  border-radius: 4px;
+}
+.field-wrap input[type="password"],
+.field-wrap input[type="text"].has-toggle {
+  padding-right: 68px;
+}
+.field.valid .field-wrap:has(.password-toggle)::after {
+  right: 60px;
 }
