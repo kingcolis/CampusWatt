@@ -1,0 +1,2 @@
+[tool.vercel]
+entrypoint = "utils.api_utils:app"
