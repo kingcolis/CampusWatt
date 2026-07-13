@@ -8,11 +8,11 @@ from pathlib import Path
 import jwt
 from datetime import datetime, timedelta
 import datetime
-from data_utils import *
-from db_utils import *
-from input_utils import *
-from slm_utils.reccomend import *
-from causal_utils import *
+from .data_utils import *
+from .db_utils import *
+from .input_utils import *
+from .slm_utils.reccomend import *
+from .causal_utils import *
 import time
 from time import perf_counter
 from fastapi import HTTPException, Depends
