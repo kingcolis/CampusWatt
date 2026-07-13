@@ -1,0 +1,6 @@
+notebooks/
+model_statistics/
+data_energy/
+.git/
+.github/
+*.ipynb
