@@ -45,18 +45,20 @@ def save_mock_db():
     except Exception as e:
         print(f"[DB] Error saving mock_db.json: {e}")
 
-DB_PASSWORD = os.getenv("db_password")
-DB_USER = os.getenv("db_user")
+DATABASE_URL = os.getenv("DATABASE_URL")
+DB_PASSWORD = os.getenv("db_password") or os.getenv("PGPASSWORD")
+DB_USER = os.getenv("db_user") or os.getenv("PGUSER")
+DB_HOST = os.getenv("db_host") or os.getenv("PGHOST") or "localhost"
+DB_PORT = os.getenv("db_port") or os.getenv("PGPORT") or "5432"
+DB_NAME = os.getenv("db_name") or os.getenv("PGDATABASE") or "campuswatt"
 
+if DATABASE_URL:
+    conninfo = DATABASE_URL
+else:
+    conninfo = f"host={DB_HOST} port={DB_PORT} dbname={DB_NAME} user={DB_USER} password={DB_PASSWORD}"
 
 DB_POOL = AsyncConnectionPool(
-    conninfo=f"""
-        host=localhost
-        port=5432
-        dbname=campuswatt
-        user={DB_USER}
-        password={DB_PASSWORD}
-    """,
+    conninfo=conninfo,
     min_size=2,
     max_size=10,
     open=False
