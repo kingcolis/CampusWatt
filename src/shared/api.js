@@ -1,7 +1,7 @@
 const CampusEnergyAPI = (() => {
 
   const CONFIG = {
-    BASE_URL: window.__CE_API_BASE__ || "http://localhost:8001",
+    BASE_URL: window.__CE_API_BASE__ || "https://campuswatt-guof.onrender.com",
     USE_MOCKS: false,
     TIMEOUT_MS: 12000,
   };
