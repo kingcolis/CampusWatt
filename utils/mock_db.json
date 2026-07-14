@@ -5,6 +5,12 @@
       "username": "king",
       "email": "king@campuswatt.com",
       "password_hash": "scrypt:32768:8:1$KWmTQyhZWT2tYfr1$baf6fea50a0ded4a0dcbe7a6dba19f625afdc5c923d48393ed106f8d3fcdb81c69186078da25adf1e05de7908fc488d1fe05142514ce3d9ef419b47736da99bc"
+    },
+    {
+      "id": 2,
+      "username": "test",
+      "email": "test@campuswatt.com",
+      "password_hash": "scrypt:32768:8:1$ZhsrI2qHrxN31NUZ$7cfdebea2d70c29fea5879ef51aa6596be77ac9671bea641d282e61427b5b06675db832c78681e70c7dee56924a0b595c5843975fe0a0076819193320a75a881"
     }
   ],
   "posts": []

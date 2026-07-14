@@ -8,11 +8,18 @@ from pathlib import Path
 import jwt
 from datetime import datetime, timedelta
 import datetime
-from .data_utils import *
-from .db_utils import *
-from .input_utils import *
-from .slm_utils.reccomend import *
-from .causal_utils import *
+try:
+    from .data_utils import *
+    from .db_utils import *
+    from .input_utils import *
+    from .slm_utils.reccomend import *
+    from .causal_utils import *
+except ImportError:
+    from data_utils import *
+    from db_utils import *
+    from input_utils import *
+    from slm_utils.reccomend import *
+    from causal_utils import *
 import time
 from time import perf_counter
 from fastapi import HTTPException, Depends
@@ -93,8 +100,17 @@ async def shutdown():
     await DB_POOL.close()
 
 #General Utils
-model = joblib.load("models/rfr_model.pkl")
-causal_model = joblib.load("models/causal_models/causal_linear_model.pkl") 
+try:
+    model = joblib.load("models/rfr_model.pkl")
+except FileNotFoundError:
+    model_path = Path(__file__).resolve().parent.parent / "models" / "rfr_model.pkl"
+    model = joblib.load(model_path)
+
+try:
+    causal_model = joblib.load("models/causal_models/causal_linear_model.pkl")
+except FileNotFoundError:
+    causal_model_path = Path(__file__).resolve().parent.parent / "models" / "causal_models" / "causal_linear_model.pkl"
+    causal_model = joblib.load(causal_model_path) 
 
 print(model.feature_names_in_)
 

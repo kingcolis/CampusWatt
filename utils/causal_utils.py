@@ -2,16 +2,26 @@ import pandas as pd
 import numpy as np
 from scipy.spatial.distance import mahalanobis
 import joblib
+from pathlib import Path
+import os
+
+def get_model_path(relative_path):
+    if os.path.exists(relative_path):
+        return relative_path
+    fallback = Path(__file__).resolve().parent.parent / relative_path
+    if fallback.exists():
+        return fallback
+    return relative_path
 
 CAUSAL_COEF = (
     pd.read_csv(
-        "models/causal_models/causal_coefficients.csv",
+        get_model_path("models/causal_models/causal_coefficients.csv"),
         index_col=0
     )["Coefficient"]
     .to_dict()
 )
 
-stats = joblib.load("models/causal_models/causal_distribution.pkl")
+stats = joblib.load(get_model_path("models/causal_models/causal_distribution.pkl"))
 
 CAUSAL_MEAN = stats["mean"]
 CAUSAL_INV_COV = stats["inv_cov"]

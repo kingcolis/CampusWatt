@@ -1,4 +1,7 @@
-from .data_utils import *
+try:
+    from .data_utils import *
+except ImportError:
+    from data_utils import *
 import pandas as pd
 
 
